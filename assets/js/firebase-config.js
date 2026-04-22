@@ -3,13 +3,12 @@
 // Remplacez les valeurs ci-dessous par celles de votre projet
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBhQAiSCOQBpRHBj6hW5rqr9Z12onaD1Hk",
-  authDomain: "baticonseil-sitebb.firebaseapp.com",
-  databaseURL: "https://baticonseil-sitebb-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "baticonseil-sitebb",
-  storageBucket: "baticonseil-sitebb.appspot.com",
-  messagingSenderId: "1092948163478",
-  appId: "1:1092948163478:web:d0dd7f3f2b5cf721ea3bb7"
+  apiKey: "AIzaSyDfpL1jyl3B0FZnB8m-BvYst8SyVh5YcKA",
+  authDomain: "baticonseil-ah0izw.firebaseapp.com",
+  projectId: "baticonseil-ah0izw",
+  storageBucket: "baticonseil-ah0izw.firebasestorage.app",
+  messagingSenderId: "605781891786",
+  appId: "1:605781891786:web:116be1aec5d9c682e5f233"
 };
 
 // ============================================================
