@@ -1,0 +1,992 @@
+// ============================================================
+// ADMIN PANEL — Firebase Auth + Firestore + Storage
+// ============================================================
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBhQAiSCOQBpRHBj6hW5rqr9Z12onaD1Hk",
+  authDomain: "baticonseil-sitebb.firebaseapp.com",
+  databaseURL: "https://baticonseil-sitebb-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "baticonseil-sitebb",
+  storageBucket: "baticonseil-sitebb.appspot.com",
+  messagingSenderId: "1092948163478",
+  appId: "1:1092948163478:web:d0dd7f3f2b5cf721ea3bb7"
+};
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+let db, auth, storage, currentUser;
+let appData = {};
+let firebaseReady = false;
+
+try { firebase.initializeApp(FIREBASE_CONFIG); } catch (e) {}
+db      = firebase.firestore();
+auth    = firebase.auth();
+storage = firebase.storage();
+
+// ── Auth guard ──────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+  if (!user) { window.location.replace("login.html"); return; }
+  currentUser = user;
+  document.getElementById("sidebarUserEmail").textContent = user.email;
+  initAdmin();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+async function initAdmin() {
+  toast("Connexion Firebase…", "info");
+  try {
+    await loadData();
+    firebaseReady = true;
+    document.getElementById("syncBadge").textContent = "✅ Firebase";
+    document.getElementById("syncBadge").className = "topbar-badge badge-firebase";
+    toast("Données chargées depuis Firebase", "success");
+  } catch (e) {
+    console.warn("Firebase non disponible, mode local", e);
+    loadLocalData();
+    document.getElementById("syncBadge").textContent = "💾 Local";
+    document.getElementById("syncBadge").className = "topbar-badge badge-local";
+  }
+
+  renderCurrentSection();
+  bindNav();
+  bindGlobal();
+}
+
+// ============================================================
+// DATA LAYER
+// ============================================================
+async function loadData() {
+  const snap = await db.collection("site").doc("data").get();
+  if (snap.exists) {
+    appData = snap.data();
+  } else {
+    appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    await db.collection("site").doc("data").set(appData);
+  }
+  saveLocal();
+}
+
+function loadLocalData() {
+  try {
+    const saved = localStorage.getItem("bbSiteData");
+    appData = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+  } catch (e) {
+    appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+}
+
+function saveLocal() {
+  try { localStorage.setItem("bbSiteData", JSON.stringify(appData)); } catch (e) {}
+}
+
+async function saveData() {
+  saveLocal();
+  if (!firebaseReady) { toast("Sauvegardé localement (Firebase non disponible)", "warning"); return; }
+  try {
+    await db.collection("site").doc("data").set(appData);
+    toast("✅ Sauvegardé sur Firebase !", "success");
+  } catch (e) {
+    toast("Erreur Firebase : " + e.message, "error");
+    throw e;
+  }
+}
+
+function uid(prefix = "id") {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+}
+
+function get(path) {
+  return path.split(".").reduce((o, k) => o?.[k], appData);
+}
+
+function set(path, value) {
+  const keys = path.split(".");
+  let obj = appData;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!obj[keys[i]] || typeof obj[keys[i]] !== "object") obj[keys[i]] = {};
+    obj = obj[keys[i]];
+  }
+  obj[keys[keys.length - 1]] = value;
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentSection = "dashboard";
+
+function bindNav() {
+  document.querySelectorAll(".nav-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const sec = item.dataset.section;
+      if (!sec) return;
+      currentSection = sec;
+      document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+      item.classList.add("active");
+      document.getElementById("topbarTitle").textContent = item.textContent.trim();
+      document.querySelectorAll(".admin-section").forEach(s => s.style.display = "none");
+      const el = document.getElementById(`sec-${sec}`);
+      if (el) el.style.display = "block";
+      renderCurrentSection();
+      // Close mobile sidebar
+      document.getElementById("sidebar").classList.remove("mobile-open");
+    });
+  });
+}
+
+function renderCurrentSection() {
+  const renders = {
+    dashboard:    renderDashboard,
+    messages:     renderMessages,
+    services:     renderServicesTable,
+    articles:     renderArticlesTable,
+    categories:   renderCategoriesTable,
+    testimonials: renderTestimonialsTable,
+    gallery:      renderGallery,
+    settings:     renderSettings,
+    hero:         renderHero,
+    colors:       renderColors,
+    stats:        renderStatsSection,
+    extensions:   renderExtensions
+  };
+  renders[currentSection]?.();
+}
+
+function bindGlobal() {
+  // Save all
+  document.getElementById("saveAllBtn")?.addEventListener("click", saveData);
+
+  // Logout
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    if (!confirm("Se déconnecter ?")) return;
+    await auth.signOut();
+    window.location.replace("login.html");
+  });
+
+  // Mobile sidebar toggle
+  document.getElementById("sidebarToggle")?.addEventListener("click", () => {
+    document.getElementById("sidebar").classList.toggle("mobile-open");
+  });
+
+  // Modal close
+  document.getElementById("modalClose")?.addEventListener("click", closeModal);
+  document.getElementById("modalOverlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("modalOverlay")) closeModal();
+  });
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type = "success") {
+  const icons = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+  const el = document.createElement("div");
+  el.className = `toast ${type === "success" ? "" : type}`;
+  el.innerHTML = `<span class="toast-icon">${icons[type]||"ℹ️"}</span><span>${msg}</span>`;
+  document.getElementById("toastContainer").appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(title, bodyHTML, footerHTML) {
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalBody").innerHTML = bodyHTML;
+  document.getElementById("modalFooter").innerHTML = footerHTML || `<button class="btn btn-ghost" onclick="closeModal()">Fermer</button>`;
+  document.getElementById("modalOverlay").classList.add("open");
+}
+function closeModal() {
+  document.getElementById("modalOverlay").classList.remove("open");
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const data = appData;
+  const stats = [
+    { icon: "🔧", val: (data.services||[]).length, lbl: "Services", cls: "blue" },
+    { icon: "📰", val: (data.articles||[]).length, lbl: "Articles", cls: "green" },
+    { icon: "⭐", val: (data.testimonials||[]).length, lbl: "Témoignages", cls: "yellow" },
+    { icon: "🖼️", val: (data.gallery||[]).length, lbl: "Images galerie", cls: "purple" }
+  ];
+  document.getElementById("dashStats").innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="stat-card-icon ${s.cls}">${s.icon}</div>
+      <div class="stat-card-info"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>
+    </div>`).join("");
+
+  document.getElementById("quickActions").innerHTML = [
+    { icon: "🔧", lbl: "Ajouter un service",    sec: "services" },
+    { icon: "📰", lbl: "Nouvel article",         sec: "articles" },
+    { icon: "🎨", lbl: "Modifier les couleurs",  sec: "colors" },
+    { icon: "🖼️", lbl: "Gérer la galerie",       sec: "gallery" }
+  ].map(a => `<button class="quick-btn" onclick="goTo('${a.sec}')"><span class="quick-btn-icon">${a.icon}</span>${a.lbl}</button>`).join("");
+
+  // Recent messages
+  loadRecentMessages();
+}
+
+function goTo(sec) {
+  document.querySelector(`[data-section="${sec}"]`)?.click();
+}
+
+async function loadRecentMessages() {
+  const el = document.getElementById("recentMessages");
+  if (!el) return;
+  el.innerHTML = `<div class="section-header-bar" style="margin-top:24px"><div><h2>Messages récents</h2></div><button class="btn btn-ghost btn-sm" onclick="goTo('messages')">Voir tout →</button></div>`;
+  try {
+    if (!firebaseReady) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Connectez Firebase pour voir les messages.</p>`; return; }
+    const snap = await db.collection("messages").orderBy("date","desc").limit(3).get();
+    if (snap.empty) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Aucun message reçu.</p>`; return; }
+    snap.docs.forEach(d => el.innerHTML += renderMsgCard(d.id, d.data()));
+  } catch(e) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Impossible de charger les messages.</p>`; }
+}
+
+// ============================================================
+// MESSAGES
+// ============================================================
+async function renderMessages() {
+  const el = document.getElementById("messagesList");
+  el.innerHTML = `<p style="color:var(--text-m);font-size:0.85rem">Chargement…</p>`;
+  if (!firebaseReady) { el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Firebase requis</h4><p>Configurez Firebase pour recevoir les messages du formulaire de contact.</p></div>`; return; }
+  try {
+    const snap = await db.collection("messages").orderBy("date","desc").get();
+    if (snap.empty) { el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Aucun message</h4><p>Les messages du formulaire de contact apparaîtront ici.</p></div>`; return; }
+    el.innerHTML = "";
+    snap.docs.forEach(d => el.innerHTML += renderMsgCard(d.id, d.data(), true));
+
+    // Update badge
+    const unread = snap.docs.filter(d => !d.data().read).length;
+    const badge = document.getElementById("msgBadge");
+    if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
+  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">Erreur : ${e.message}</p>`; }
+}
+
+function renderMsgCard(id, msg, showDelete = false) {
+  const date = msg.date ? new Date(msg.date).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+  return `
+    <div class="message-card${msg.read ? "" : " unread"}">
+      <div class="message-header">
+        <div><div class="message-sender">${msg.firstName||""} ${msg.lastName||""} <span style="font-weight:400;color:var(--text-m)">— ${msg.email||""}</span></div>
+        <div class="message-subject">📋 ${msg.subject||"Sans objet"}${msg.phone ? ` · 📞 ${msg.phone}` : ""}</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="message-date">${date}</span>
+          ${!msg.read && showDelete ? `<button class="btn btn-ghost btn-sm" onclick="markMsgRead('${id}')">Lu</button>` : ""}
+          ${showDelete ? `<button class="btn btn-danger btn-sm btn-icon" onclick="deleteMsg('${id}')">🗑</button>` : ""}
+        </div>
+      </div>
+      <div class="message-body">${(msg.message||"").replace(/\n/g,"<br>")}</div>
+    </div>`;
+}
+
+async function markMsgRead(id) {
+  try { await db.collection("messages").doc(id).update({ read: true }); renderMessages(); } catch(e) {}
+}
+async function deleteMsg(id) {
+  if (!confirm("Supprimer ce message définitivement ?")) return;
+  try { await db.collection("messages").doc(id).delete(); renderMessages(); toast("Message supprimé"); } catch(e) { toast(e.message,"error"); }
+}
+
+// ============================================================
+// SERVICES
+// ============================================================
+function renderServicesTable() {
+  const services = appData.services || [];
+  const categories = appData.categories || [];
+  const tbody = document.getElementById("servicesTable");
+  if (!tbody) return;
+
+  const search = document.getElementById("serviceSearch");
+  const filter = (search?.value||"").toLowerCase();
+  const filtered = services.filter(s => !filter || s.title?.toLowerCase().includes(filter));
+
+  tbody.innerHTML = filtered.length ? filtered.map(s => {
+    const cat = categories.find(c => c.id === s.categoryId);
+    return `<tr>
+      <td class="td-icon">${s.icon||"🔧"}</td>
+      <td><div class="td-title">${s.title}</div><div class="td-sub">${(s.description||"").slice(0,50)}…</div></td>
+      <td>${cat ? `<span class="badge badge-info">${cat.name}</span>` : "—"}</td>
+      <td>${s.featured ? `<span class="badge badge-success">⭐ Oui</span>` : `<span class="badge badge-neutral">Non</span>`}</td>
+      <td>${s.active !== false ? `<span class="badge badge-success">Actif</span>` : `<span class="badge badge-danger">Masqué</span>`}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editService('${s.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteService('${s.id}')" title="Supprimer">🗑</button>
+      </td></tr>`;
+  }).join("") : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-m)">Aucun service trouvé</td></tr>`;
+
+  search?.addEventListener("input", renderServicesTable);
+
+  document.getElementById("addServiceBtn")?.addEventListener("click", () => editService(null));
+  document.getElementById("addServiceBtn")?.removeEventListener("click", () => editService(null)); // remove dup
+}
+
+function serviceFormHTML(s = {}, categories = []) {
+  const icons = ["🔧","🏗️","🔍","💡","📋","⚡","✅","🏠","🔨","📐","🗂️","🌿","🔑","💼","🏛️","⭐"];
+  return `
+    <div class="form-grid">
+      <div class="form-group span-2"><label>Titre <span class="req">*</span></label><input id="sf-title" type="text" value="${s.title||""}" placeholder="Conseil en construction" required></div>
+      <div class="form-group span-2"><label>Description</label><textarea id="sf-desc" rows="3" placeholder="Description du service…">${s.description||""}</textarea></div>
+      <div class="form-group"><label>Catégorie</label>
+        <select id="sf-cat">
+          <option value="">— Aucune —</option>
+          ${categories.map(c => `<option value="${c.id}" ${s.categoryId===c.id?"selected":""}>${c.icon||""} ${c.name}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-group"><label>Ordre d'affichage</label><input id="sf-order" type="number" value="${s.order||1}" min="1"></div>
+      <div class="form-group span-2"><label>URL de l'image</label><input id="sf-img" type="url" value="${s.image||""}" placeholder="https://… (galerie)"></div>
+      <div class="form-group"><label>Icône</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span id="sf-icon-preview" style="font-size:1.8rem">${s.icon||"🔧"}</span>
+          <input id="sf-icon" type="text" value="${s.icon||"🔧"}" style="width:80px;text-align:center;font-size:1.2rem" oninput="document.getElementById('sf-icon-preview').textContent=this.value">
+        </div>
+        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${s.icon===ic?" selected":""}" onclick="selectIcon('${ic}')">${ic}</button>`).join("")}</div>
+      </div>
+      <div class="form-group">
+        <label>Options</label>
+        <div class="toggle-wrap" style="margin-bottom:10px">
+          <label class="toggle"><input type="checkbox" id="sf-featured" ${s.featured?"checked":""}><span class="toggle-slider"></span></label>
+          <span class="toggle-label-txt">Mis en avant</span>
+        </div>
+        <div class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" id="sf-active" ${s.active!==false?"checked":""}><span class="toggle-slider"></span></label>
+          <span class="toggle-label-txt">Actif / Visible</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function selectIcon(ic) {
+  document.getElementById("sf-icon").value = ic;
+  document.getElementById("sf-icon-preview").textContent = ic;
+  document.querySelectorAll(".icon-btn").forEach(b => b.classList.remove("selected"));
+  event.target.classList.add("selected");
+}
+
+function editService(id) {
+  const services = appData.services || [];
+  const cats = appData.categories || [];
+  const s = id ? services.find(x => x.id === id) : {};
+  openModal(
+    id ? "Modifier le service" : "Ajouter un service",
+    serviceFormHTML(s||{}, cats),
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveService('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveService(id) {
+  const title = document.getElementById("sf-title").value.trim();
+  if (!title) { toast("Le titre est requis", "error"); return; }
+  const service = {
+    id: id || uid("s"),
+    title,
+    description: document.getElementById("sf-desc").value.trim(),
+    categoryId:  document.getElementById("sf-cat").value,
+    order:       parseInt(document.getElementById("sf-order").value) || 1,
+    image:       document.getElementById("sf-img").value.trim(),
+    icon:        document.getElementById("sf-icon").value.trim() || "🔧",
+    featured:    document.getElementById("sf-featured").checked,
+    active:      document.getElementById("sf-active").checked
+  };
+  const services = appData.services || [];
+  if (id) { const i = services.findIndex(x => x.id === id); if (i >= 0) services[i] = service; }
+  else services.push(service);
+  appData.services = services;
+  closeModal();
+  await saveData();
+  renderServicesTable();
+}
+
+async function deleteService(id) {
+  if (!confirm("Supprimer ce service définitivement ?")) return;
+  appData.services = (appData.services || []).filter(s => s.id !== id);
+  await saveData();
+  renderServicesTable();
+  toast("Service supprimé");
+}
+
+// ============================================================
+// ARTICLES
+// ============================================================
+function renderArticlesTable() {
+  const articles = appData.articles || [];
+  const tbody = document.getElementById("articlesTable");
+  if (!tbody) return;
+
+  const search = (document.getElementById("articleSearch")?.value||"").toLowerCase();
+  const filtered = articles.filter(a => !search || a.title?.toLowerCase().includes(search));
+
+  tbody.innerHTML = filtered.length ? filtered.map(a => {
+    const date = a.date ? new Date(a.date).toLocaleDateString("fr-FR") : "—";
+    return `<tr>
+      <td><div class="td-title">${a.title}</div></td>
+      <td>${a.category ? `<span class="badge badge-info">${a.category}</span>` : "—"}</td>
+      <td>${date}</td>
+      <td>${a.published !== false ? `<span class="badge badge-success">Publié</span>` : `<span class="badge badge-warning">Brouillon</span>`}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editArticle('${a.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteArticle('${a.id}')" title="Supprimer">🗑</button>
+      </td></tr>`;
+  }).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucun article trouvé</td></tr>`;
+
+  document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
+  document.getElementById("addArticleBtn")?.addEventListener("click", () => editArticle(null));
+}
+
+function articleFormHTML(a = {}) {
+  const cats = (appData.categories || []).filter(c => !c.type || c.type === "article" || c.type === "service");
+  return `
+    <div class="form-grid cols-1">
+      <div class="form-group"><label>Titre <span class="req">*</span></label><input id="af-title" type="text" value="${(a.title||"").replace(/"/g,"&quot;")}" placeholder="Titre de l'article" required></div>
+      <div class="form-group"><label>Extrait (résumé)</label><textarea id="af-excerpt" rows="2" placeholder="Courte description affichée en liste…">${a.excerpt||""}</textarea></div>
+      <div class="form-group"><label>Contenu complet (HTML)</label><textarea id="af-content" rows="8" placeholder="<p>Contenu de l'article…</p>">${a.content||""}</textarea></div>
+      <div class="form-grid" style="grid-column:1">
+        <div class="form-group"><label>Catégorie</label>
+          <select id="af-cat">
+            <option value="">— Choisir —</option>
+            ${cats.map(c => `<option value="${c.name}" ${a.category===c.name?"selected":""}>${c.name}</option>`).join("")}
+            <option value="Conseil" ${a.category==="Conseil"?"selected":""}>Conseil</option>
+            <option value="Actualité" ${a.category==="Actualité"?"selected":""}>Actualité</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Date de publication</label><input id="af-date" type="date" value="${a.date||new Date().toISOString().slice(0,10)}"></div>
+      </div>
+      <div class="form-group"><label>URL de l'image</label><input id="af-img" type="url" value="${a.image||""}" placeholder="https://… (galerie)"></div>
+      <div class="toggle-wrap">
+        <label class="toggle"><input type="checkbox" id="af-published" ${a.published!==false?"checked":""}><span class="toggle-slider"></span></label>
+        <span class="toggle-label-txt">Publié (visible sur le site)</span>
+      </div>
+    </div>`;
+}
+
+function editArticle(id) {
+  const articles = appData.articles || [];
+  const a = id ? articles.find(x => x.id === id) : {};
+  openModal(
+    id ? "Modifier l'article" : "Nouvel article",
+    articleFormHTML(a||{}),
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveArticle('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveArticle(id) {
+  const title = document.getElementById("af-title").value.trim();
+  if (!title) { toast("Le titre est requis", "error"); return; }
+  const article = {
+    id:        id || uid("a"),
+    title,
+    excerpt:   document.getElementById("af-excerpt").value.trim(),
+    content:   document.getElementById("af-content").value.trim(),
+    category:  document.getElementById("af-cat").value,
+    date:      document.getElementById("af-date").value,
+    image:     document.getElementById("af-img").value.trim(),
+    published: document.getElementById("af-published").checked,
+    slug:      title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")
+  };
+  const articles = appData.articles || [];
+  if (id) { const i = articles.findIndex(x => x.id === id); if (i >= 0) articles[i] = article; }
+  else articles.push(article);
+  appData.articles = articles;
+  closeModal();
+  await saveData();
+  renderArticlesTable();
+}
+
+async function deleteArticle(id) {
+  if (!confirm("Supprimer cet article définitivement ?")) return;
+  appData.articles = (appData.articles || []).filter(a => a.id !== id);
+  await saveData();
+  renderArticlesTable();
+  toast("Article supprimé");
+}
+
+// ============================================================
+// CATEGORIES
+// ============================================================
+function renderCategoriesTable() {
+  const cats = appData.categories || [];
+  const tbody = document.getElementById("categoriesTable");
+  if (!tbody) return;
+  tbody.innerHTML = cats.length ? cats.sort((a,b)=>(a.order||99)-(b.order||99)).map(c => `
+    <tr>
+      <td class="td-icon">${c.icon||"🏷️"}</td>
+      <td class="td-title">${c.name}</td>
+      <td><span class="badge badge-info">${c.type||"service"}</span></td>
+      <td>${c.order||1}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editCategory('${c.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteCategory('${c.id}')">🗑</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucune catégorie</td></tr>`;
+
+  document.getElementById("addCatBtn")?.addEventListener("click", () => editCategory(null));
+}
+
+function catFormHTML(c = {}) {
+  const icons = ["💡","🏗️","🔍","📋","⚡","✅","🏠","⭐","🔧","🌿","🔑","💼","🏛️","📐","🗂️","📊"];
+  return `
+    <div class="form-grid">
+      <div class="form-group"><label>Nom <span class="req">*</span></label><input id="cf2-name" type="text" value="${c.name||""}" placeholder="Conseil"></div>
+      <div class="form-group"><label>Type</label>
+        <select id="cf2-type">
+          <option value="service" ${c.type==="service"||!c.type?"selected":""}>Service</option>
+          <option value="article" ${c.type==="article"?"selected":""}>Article</option>
+          <option value="both" ${c.type==="both"?"selected":""}>Les deux</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Ordre</label><input id="cf2-order" type="number" value="${c.order||1}" min="1"></div>
+      <div class="form-group"><label>Icône</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span id="cf2-icon-preview" style="font-size:1.8rem">${c.icon||"🏷️"}</span>
+          <input id="cf2-icon" type="text" value="${c.icon||"🏷️"}" style="width:80px;text-align:center;font-size:1.2rem">
+        </div>
+        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${c.icon===ic?" selected":""}" onclick="document.getElementById('cf2-icon').value='${ic}';document.getElementById('cf2-icon-preview').textContent='${ic}';document.querySelectorAll('.icon-btn').forEach(b=>b.classList.remove('selected'));event.target.classList.add('selected')">${ic}</button>`).join("")}</div>
+      </div>
+    </div>`;
+}
+
+function editCategory(id) {
+  const cat = id ? (appData.categories||[]).find(c => c.id === id) : {};
+  openModal(
+    id ? "Modifier la catégorie" : "Nouvelle catégorie",
+    catFormHTML(cat||{}),
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveCategory('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveCategory(id) {
+  const name = document.getElementById("cf2-name").value.trim();
+  if (!name) { toast("Le nom est requis","error"); return; }
+  const cat = {
+    id:    id || uid("cat"),
+    name,
+    type:  document.getElementById("cf2-type").value,
+    order: parseInt(document.getElementById("cf2-order").value) || 1,
+    icon:  document.getElementById("cf2-icon").value.trim() || "🏷️"
+  };
+  const cats = appData.categories || [];
+  if (id) { const i = cats.findIndex(c => c.id === id); if (i >= 0) cats[i] = cat; }
+  else cats.push(cat);
+  appData.categories = cats;
+  closeModal();
+  await saveData();
+  renderCategoriesTable();
+}
+
+async function deleteCategory(id) {
+  if (!confirm("Supprimer cette catégorie ?")) return;
+  appData.categories = (appData.categories||[]).filter(c => c.id !== id);
+  await saveData();
+  renderCategoriesTable();
+  toast("Catégorie supprimée");
+}
+
+// ============================================================
+// TESTIMONIALS
+// ============================================================
+function renderTestimonialsTable() {
+  const items = appData.testimonials || [];
+  const tbody = document.getElementById("testimonialsTable");
+  if (!tbody) return;
+  tbody.innerHTML = items.length ? items.map(t => `
+    <tr>
+      <td class="td-title">${t.name}</td>
+      <td style="color:var(--text-m);font-size:0.82rem">${t.role||"—"}</td>
+      <td>${"★".repeat(t.rating||5)}</td>
+      <td>${t.active!==false?`<span class="badge badge-success">Visible</span>`:`<span class="badge badge-neutral">Masqué</span>`}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editTestimonial('${t.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTestimonial('${t.id}')">🗑</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucun témoignage</td></tr>`;
+
+  document.getElementById("addTestiBtn")?.addEventListener("click", () => editTestimonial(null));
+}
+
+function testiFormHTML(t = {}) {
+  return `
+    <div class="form-grid cols-1">
+      <div class="form-grid">
+        <div class="form-group"><label>Nom <span class="req">*</span></label><input id="tf-name" type="text" value="${t.name||""}" placeholder="Sophie M."></div>
+        <div class="form-group"><label>Rôle / Contexte</label><input id="tf-role" type="text" value="${t.role||""}" placeholder="Propriétaire - Maison individuelle"></div>
+      </div>
+      <div class="form-group"><label>Témoignage <span class="req">*</span></label><textarea id="tf-text" rows="4" placeholder="Texte du témoignage…">${t.text||""}</textarea></div>
+      <div class="form-group"><label>Note (1 à 5 étoiles)</label>
+        <select id="tf-rating">
+          ${[5,4,3,2,1].map(n=>`<option value="${n}" ${(t.rating||5)===n?"selected":""}>${"★".repeat(n)} ${n}/5</option>`).join("")}
+        </select>
+      </div>
+      <div class="toggle-wrap">
+        <label class="toggle"><input type="checkbox" id="tf-active" ${t.active!==false?"checked":""}><span class="toggle-slider"></span></label>
+        <span class="toggle-label-txt">Visible sur le site</span>
+      </div>
+    </div>`;
+}
+
+function editTestimonial(id) {
+  const t = id ? (appData.testimonials||[]).find(x => x.id === id) : {};
+  openModal(
+    id ? "Modifier le témoignage" : "Ajouter un témoignage",
+    testiFormHTML(t||{}),
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveTestimonial('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveTestimonial(id) {
+  const name = document.getElementById("tf-name").value.trim();
+  const text = document.getElementById("tf-text").value.trim();
+  if (!name || !text) { toast("Nom et témoignage requis","error"); return; }
+  const t = {
+    id:     id || uid("t"),
+    name,
+    role:   document.getElementById("tf-role").value.trim(),
+    text,
+    rating: parseInt(document.getElementById("tf-rating").value) || 5,
+    active: document.getElementById("tf-active").checked
+  };
+  const items = appData.testimonials || [];
+  if (id) { const i = items.findIndex(x => x.id === id); if (i >= 0) items[i] = t; }
+  else items.push(t);
+  appData.testimonials = items;
+  closeModal();
+  await saveData();
+  renderTestimonialsTable();
+}
+
+async function deleteTestimonial(id) {
+  if (!confirm("Supprimer ce témoignage ?")) return;
+  appData.testimonials = (appData.testimonials||[]).filter(t => t.id !== id);
+  await saveData();
+  renderTestimonialsTable();
+  toast("Témoignage supprimé");
+}
+
+// ============================================================
+// GALLERY — Firebase Storage
+// ============================================================
+function renderGallery() {
+  const gallery = appData.gallery || [];
+  const grid = document.getElementById("galleryGrid");
+  if (!grid) return;
+
+  grid.innerHTML = gallery.length ? gallery.map(img => `
+    <div class="gallery-item">
+      <img src="${img.url}" alt="${img.name||""}" loading="lazy">
+      <div class="gallery-item-overlay">
+        <button class="copy-url-btn" onclick="copyUrl('${img.url}')">📋 Copier URL</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteGalleryImg('${img.id}')" style="background:rgba(239,68,68,0.8);border-color:transparent">🗑</button>
+      </div>
+      <div class="gallery-item-name">${img.name||""}</div>
+    </div>`).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">Aucune image dans la galerie</p>`;
+
+  // Upload via file picker
+  const zone = document.getElementById("galleryDrop");
+  const fileInput = document.getElementById("galleryFileInput");
+
+  zone?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", e => handleGalleryFiles(e.target.files));
+
+  zone?.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
+  zone?.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone?.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("drag-over"); handleGalleryFiles(e.dataTransfer.files); });
+
+  document.getElementById("galleryAddUrl")?.addEventListener("click", addGalleryUrl);
+}
+
+async function handleGalleryFiles(files) {
+  if (!files?.length) return;
+  for (const file of Array.from(files)) {
+    if (!file.type.startsWith("image/")) { toast(`${file.name} n'est pas une image`, "error"); continue; }
+    if (file.size > 5 * 1024 * 1024) { toast(`${file.name} dépasse 5 Mo`, "warning"); continue; }
+    toast(`Upload de ${file.name}…`, "info");
+    try {
+      let url;
+      if (firebaseReady && storage) {
+        const ref = storage.ref(`gallery/${Date.now()}_${file.name}`);
+        await ref.put(file);
+        url = await ref.getDownloadURL();
+      } else {
+        // Fallback: base64 (small images only)
+        url = await fileToBase64(file);
+      }
+      const img = { id: uid("img"), name: file.name, url, date: new Date().toISOString() };
+      appData.gallery = [...(appData.gallery||[]), img];
+      await saveData();
+      renderGallery();
+      toast(`✅ ${file.name} uploadé !`);
+    } catch(e) { toast(`Erreur upload ${file.name} : ${e.message}`, "error"); }
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addGalleryUrl() {
+  const input = document.getElementById("galleryUrlInput");
+  const url = input?.value.trim();
+  if (!url || !url.startsWith("http")) { toast("URL invalide","error"); return; }
+  const name = url.split("/").pop().split("?")[0] || "image";
+  const img = { id: uid("img"), name, url, date: new Date().toISOString() };
+  appData.gallery = [...(appData.gallery||[]), img];
+  input.value = "";
+  await saveData();
+  renderGallery();
+  toast("Image ajoutée depuis URL");
+}
+
+async function deleteGalleryImg(id) {
+  if (!confirm("Supprimer cette image ?")) return;
+  const img = (appData.gallery||[]).find(i => i.id === id);
+  // Delete from Firebase Storage if possible
+  if (img && img.url && img.url.includes("firebasestorage") && storage) {
+    try { await storage.refFromURL(img.url).delete(); } catch(e) { console.warn("Impossible de supprimer du Storage:", e); }
+  }
+  appData.gallery = (appData.gallery||[]).filter(i => i.id !== id);
+  await saveData();
+  renderGallery();
+  toast("Image supprimée");
+}
+
+function copyUrl(url) {
+  navigator.clipboard.writeText(url).then(() => toast("URL copiée dans le presse-papiers !")).catch(() => {
+    prompt("Copiez cette URL :", url);
+  });
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings() {
+  const s = appData.settings || {};
+  const fields = { "s-name": s.siteName, "s-tagline": s.tagline, "s-desc": s.description,
+    "s-phone": s.phone, "s-email": s.email, "s-address": s.address,
+    "s-logo": s.logo, "s-footer": s.footerText,
+    "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram };
+  Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
+
+  document.getElementById("saveSettingsBtn")?.addEventListener("click", saveSettings);
+}
+
+async function saveSettings() {
+  const s = appData.settings || {};
+  s.siteName      = document.getElementById("s-name")?.value.trim();
+  s.tagline       = document.getElementById("s-tagline")?.value.trim();
+  s.description   = document.getElementById("s-desc")?.value.trim();
+  s.phone         = document.getElementById("s-phone")?.value.trim();
+  s.email         = document.getElementById("s-email")?.value.trim();
+  s.address       = document.getElementById("s-address")?.value.trim();
+  s.logo          = document.getElementById("s-logo")?.value.trim();
+  s.footerText    = document.getElementById("s-footer")?.value.trim();
+  s.socialLinkedIn = document.getElementById("s-linkedin")?.value.trim();
+  s.socialFacebook = document.getElementById("s-facebook")?.value.trim();
+  s.socialInstagram= document.getElementById("s-instagram")?.value.trim();
+  appData.settings = s;
+  document.getElementById("sidebarLogo").textContent = s.siteName || "BâtiConseil Pro";
+  await saveData();
+}
+
+// ============================================================
+// HERO & ABOUT
+// ============================================================
+function renderHero() {
+  const h = appData.hero || {};
+  const a = appData.about || {};
+  const s = appData.settings || {};
+  const map = {
+    "h-title":   h.title,   "h-subtitle": h.subtitle,
+    "h-cta1":    h.ctaLabel, "h-cta1link": h.ctaLink,
+    "h-cta2":    h.ctaSecondLabel, "h-cta2link": h.ctaSecondLink,
+    "h-heroimg": s.heroImage,
+    "a-title":   a.title,   "a-text": a.text, "a-img": a.image,
+    "a-s1v": a.stat1Value, "a-s1l": a.stat1Label,
+    "a-s2v": a.stat2Value, "a-s2l": a.stat2Label,
+    "a-s3v": a.stat3Value, "a-s3l": a.stat3Label
+  };
+  Object.entries(map).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
+  document.getElementById("saveHeroBtn")?.addEventListener("click", saveHero);
+}
+
+async function saveHero() {
+  appData.hero = {
+    title:           document.getElementById("h-title")?.value.trim(),
+    subtitle:        document.getElementById("h-subtitle")?.value.trim(),
+    ctaLabel:        document.getElementById("h-cta1")?.value.trim(),
+    ctaLink:         document.getElementById("h-cta1link")?.value.trim(),
+    ctaSecondLabel:  document.getElementById("h-cta2")?.value.trim(),
+    ctaSecondLink:   document.getElementById("h-cta2link")?.value.trim()
+  };
+  appData.settings = appData.settings || {};
+  appData.settings.heroImage = document.getElementById("h-heroimg")?.value.trim();
+  appData.about = {
+    title:       document.getElementById("a-title")?.value.trim(),
+    text:        document.getElementById("a-text")?.value.trim(),
+    image:       document.getElementById("a-img")?.value.trim(),
+    stat1Value:  document.getElementById("a-s1v")?.value.trim(),
+    stat1Label:  document.getElementById("a-s1l")?.value.trim(),
+    stat2Value:  document.getElementById("a-s2v")?.value.trim(),
+    stat2Label:  document.getElementById("a-s2l")?.value.trim(),
+    stat3Value:  document.getElementById("a-s3v")?.value.trim(),
+    stat3Label:  document.getElementById("a-s3l")?.value.trim()
+  };
+  await saveData();
+}
+
+// ============================================================
+// COLORS
+// ============================================================
+function renderColors() {
+  const c = appData.colors || {};
+  const pairs = [
+    ["primary",   c.primary   || "#1a3c5e"],
+    ["secondary", c.secondary || "#c8a96e"],
+    ["accent",    c.accent    || "#e8f4f8"],
+    ["dark",      c.dark      || "#0d1f2d"],
+    ["light",     c.light     || "#f8f6f0"]
+  ];
+  pairs.forEach(([name, val]) => {
+    const picker = document.getElementById(`c-${name}-picker`);
+    const hex    = document.getElementById(`c-${name}-hex`);
+    if (picker) { picker.value = val; picker.addEventListener("input", () => { hex.value = picker.value; updateThemePreview(); }); }
+    if (hex)    { hex.value = val;    hex.addEventListener("input",   () => { if (/^#[0-9a-f]{6}$/i.test(hex.value)) { picker.value = hex.value; updateThemePreview(); } }); }
+  });
+  updateThemePreview();
+  document.getElementById("saveColorsBtn")?.addEventListener("click", saveColors);
+}
+
+function updateThemePreview() {
+  const p = document.getElementById("c-primary-picker")?.value   || "#1a3c5e";
+  const s = document.getElementById("c-secondary-picker")?.value || "#c8a96e";
+  const d = document.getElementById("c-dark-picker")?.value      || "#0d1f2d";
+  const bar  = document.getElementById("tpBar");
+  const body = document.getElementById("tpBody");
+  const btn1 = document.getElementById("tpBtn1");
+  const btn2 = document.getElementById("tpBtn2");
+  if (bar)  bar.style.background  = d;
+  if (body) body.style.background = "#f8f9fa";
+  if (btn1) { btn1.style.background = p; btn1.style.color = "#fff"; }
+  if (btn2) { btn2.style.background = s; btn2.style.color = d; }
+}
+
+async function saveColors() {
+  appData.colors = {
+    primary:   document.getElementById("c-primary-hex")?.value   || "#1a3c5e",
+    secondary: document.getElementById("c-secondary-hex")?.value || "#c8a96e",
+    accent:    document.getElementById("c-accent-hex")?.value    || "#e8f4f8",
+    dark:      document.getElementById("c-dark-hex")?.value      || "#0d1f2d",
+    light:     document.getElementById("c-light-hex")?.value     || "#f8f6f0"
+  };
+  await saveData();
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStatsSection() {
+  const stats = appData.stats || [];
+  const tbody = document.getElementById("statsTable");
+  if (!tbody) return;
+  tbody.innerHTML = stats.map((s, i) => `
+    <tr>
+      <td><input type="text" value="${s.icon||"🏗️"}" style="width:60px;font-size:1.2rem;text-align:center;border:1.5px solid var(--border);border-radius:4px;padding:4px" oninput="updateStat(${i},'icon',this.value)"></td>
+      <td><input type="text" value="${s.value||""}" style="width:100px;border:1.5px solid var(--border);border-radius:4px;padding:6px 8px;font-size:0.9rem" oninput="updateStat(${i},'value',this.value)" placeholder="500+"></td>
+      <td><input type="text" value="${s.label||""}" style="width:180px;border:1.5px solid var(--border);border-radius:4px;padding:6px 8px;font-size:0.9rem" oninput="updateStat(${i},'label',this.value)" placeholder="Projets réalisés"></td>
+      <td class="td-actions">
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteStat('${s.id}')">🗑</button>
+      </td>
+    </tr>`).join("");
+
+  document.getElementById("addStatBtn")?.addEventListener("click", addStat);
+  document.getElementById("saveStatsBtn")?.addEventListener("click", saveData);
+}
+
+function updateStat(index, field, value) {
+  if (appData.stats?.[index]) appData.stats[index][field] = value;
+}
+async function addStat() {
+  appData.stats = [...(appData.stats||[]), { id: uid("st"), icon: "⭐", value: "0", label: "Nouvelle stat" }];
+  await saveData();
+  renderStatsSection();
+}
+async function deleteStat(id) {
+  appData.stats = (appData.stats||[]).filter(s => s.id !== id);
+  await saveData();
+  renderStatsSection();
+  toast("Statistique supprimée");
+}
+
+// ============================================================
+// EXTENSIONS
+// ============================================================
+const EXTENSION_DEFS = [
+  { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site" },
+  { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire (messages enregistrés dans Firebase)" },
+  { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse" },
+  { key: "chat",         icon: "💬", name: "Widget de chat",          desc: "Bouton flottant de chat en direct (configuration externe requise)" }
+];
+
+function renderExtensions() {
+  const exts = appData.extensions || {};
+  const grid = document.getElementById("extensionsGrid");
+  if (!grid) return;
+  grid.innerHTML = EXTENSION_DEFS.map(e => `
+    <div class="extension-card">
+      <div class="extension-icon">${e.icon}</div>
+      <div class="extension-info">
+        <h4>${e.name}</h4>
+        <p>${e.desc}</p>
+      </div>
+      <label class="toggle" style="flex-shrink:0">
+        <input type="checkbox" id="ext-${e.key}" ${exts[e.key]?"checked":""}
+          onchange="toggleExtension('${e.key}',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join("");
+
+  document.getElementById("saveExtBtn")?.addEventListener("click", saveData);
+}
+
+async function toggleExtension(key, value) {
+  if (!appData.extensions) appData.extensions = {};
+  appData.extensions[key] = value;
+  await saveData();
+  toast(`Extension "${key}" ${value ? "activée" : "désactivée"}`);
+}
+
+// ============================================================
+// EXPORT — expose to HTML onclick handlers
+// ============================================================
+window.editService    = editService;
+window.deleteService  = deleteService;
+window.saveService    = saveService;
+window.selectIcon     = selectIcon;
+window.editArticle    = editArticle;
+window.deleteArticle  = deleteArticle;
+window.saveArticle    = saveArticle;
+window.editCategory   = editCategory;
+window.deleteCategory = deleteCategory;
+window.saveCategory   = saveCategory;
+window.editTestimonial   = editTestimonial;
+window.deleteTestimonial = deleteTestimonial;
+window.saveTestimonial   = saveTestimonial;
+window.deleteGalleryImg  = deleteGalleryImg;
+window.copyUrl           = copyUrl;
+window.updateStat        = updateStat;
+window.deleteStat        = deleteStat;
+window.toggleExtension   = toggleExtension;
+window.markMsgRead       = markMsgRead;
+window.deleteMsg         = deleteMsg;
+window.goTo              = goTo;
+window.closeModal        = closeModal;

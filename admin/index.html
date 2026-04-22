@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admin — BâtiConseil Pro</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Titre</h3>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<div class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo" id="sidebarLogo">BâtiConseil Pro</div>
+      <div class="sidebar-sub">Panel Admin</div>
+      <div class="sidebar-user">
+        <span class="sidebar-user-dot"></span>
+        <span id="sidebarUserEmail">Chargement…</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" data-section="dashboard"><span class="nav-icon">📊</span> Tableau de bord</div>
+      <div class="nav-item" data-section="messages"><span class="nav-icon">✉️</span> Messages <span id="msgBadge" style="margin-left:auto;background:#ef4444;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:8px;display:none"></span></div>
+
+      <div class="nav-section">Contenu</div>
+      <div class="nav-item" data-section="services"><span class="nav-icon">🔧</span> Services</div>
+      <div class="nav-item" data-section="articles"><span class="nav-icon">📰</span> Articles</div>
+      <div class="nav-item" data-section="categories"><span class="nav-icon">🏷️</span> Catégories</div>
+      <div class="nav-item" data-section="testimonials"><span class="nav-icon">⭐</span> Témoignages</div>
+      <div class="nav-item" data-section="gallery"><span class="nav-icon">🖼️</span> Galerie</div>
+
+      <div class="nav-section">Configuration</div>
+      <div class="nav-item" data-section="settings"><span class="nav-icon">⚙️</span> Informations</div>
+      <div class="nav-item" data-section="hero"><span class="nav-icon">🏠</span> Hero & À propos</div>
+      <div class="nav-item" data-section="colors"><span class="nav-icon">🎨</span> Couleurs & Thème</div>
+      <div class="nav-item" data-section="stats"><span class="nav-icon">📈</span> Statistiques</div>
+      <div class="nav-item" data-section="extensions"><span class="nav-icon">🧩</span> Extensions</div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-logout" id="logoutBtn">🚪 Se déconnecter</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+
+    <!-- TOPBAR -->
+    <div class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="sidebar-toggle-btn" id="sidebarToggle">☰</button>
+        <span class="topbar-title" id="topbarTitle">Tableau de bord</span>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-badge badge-local" id="syncBadge">⏳ Local</span>
+        <a href="../index.html" target="_blank" class="topbar-preview">👁 Voir le site</a>
+      </div>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="admin-content" id="adminContent">
+
+      <!-- ── DASHBOARD ─────────────────────────────── -->
+      <div id="sec-dashboard" class="admin-section">
+        <div class="section-header-bar">
+          <div><h2>Tableau de bord</h2><p>Vue d'ensemble de votre site</p></div>
+          <button class="btn btn-primary" id="saveAllBtn">💾 Sauvegarder tout</button>
+        </div>
+        <div class="stats-row" id="dashStats"></div>
+        <div class="quick-actions" id="quickActions"></div>
+        <div id="recentMessages"></div>
+      </div>
+
+      <!-- ── MESSAGES ──────────────────────────────── -->
+      <div id="sec-messages" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Messages reçus</h2><p>Formulaires de contact envoyés par vos visiteurs</p></div>
+          <button class="btn btn-ghost btn-sm" id="refreshMsgBtn">🔄 Actualiser</button>
+        </div>
+        <div id="messagesList"></div>
+      </div>
+
+      <!-- ── SERVICES ──────────────────────────────── -->
+      <div id="sec-services" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Services</h2><p>Gérez les services proposés sur le site</p></div>
+          <button class="btn btn-primary" id="addServiceBtn">+ Ajouter un service</button>
+        </div>
+        <div class="table-card">
+          <div class="table-card-header">
+            <h3>Liste des services</h3>
+            <input type="text" class="table-search" id="serviceSearch" placeholder="🔍 Rechercher…">
+          </div>
+          <table><thead><tr>
+            <th>Icône</th><th>Titre</th><th>Catégorie</th><th>Mis en avant</th><th>Statut</th><th>Actions</th>
+          </tr></thead><tbody id="servicesTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── ARTICLES ──────────────────────────────── -->
+      <div id="sec-articles" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Articles</h2><p>Gérez vos articles et actualités</p></div>
+          <button class="btn btn-primary" id="addArticleBtn">+ Nouvel article</button>
+        </div>
+        <div class="table-card">
+          <div class="table-card-header">
+            <h3>Liste des articles</h3>
+            <input type="text" class="table-search" id="articleSearch" placeholder="🔍 Rechercher…">
+          </div>
+          <table><thead><tr>
+            <th>Titre</th><th>Catégorie</th><th>Date</th><th>Statut</th><th>Actions</th>
+          </tr></thead><tbody id="articlesTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── CATEGORIES ────────────────────────────── -->
+      <div id="sec-categories" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Catégories</h2><p>Organisez vos services et articles</p></div>
+          <button class="btn btn-primary" id="addCatBtn">+ Nouvelle catégorie</button>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Icône</th><th>Nom</th><th>Type</th><th>Ordre</th><th>Actions</th>
+          </tr></thead><tbody id="categoriesTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── TESTIMONIALS ──────────────────────────── -->
+      <div id="sec-testimonials" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Témoignages</h2><p>Avis et retours clients affichés sur le site</p></div>
+          <button class="btn btn-primary" id="addTestiBtn">+ Ajouter un témoignage</button>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Nom</th><th>Rôle</th><th>Note</th><th>Visible</th><th>Actions</th>
+          </tr></thead><tbody id="testimonialsTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── GALLERY ───────────────────────────────── -->
+      <div id="sec-gallery" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Galerie d'images</h2><p>Stockez et copiez les URLs de vos images</p></div>
+        </div>
+        <div class="gallery-upload-zone" id="galleryDrop">
+          <div class="upload-icon">☁️</div>
+          <p><strong>Cliquez ou glissez</strong> vos images ici</p>
+          <p style="margin-top:6px;font-size:0.75rem">JPG, PNG, WebP — max 5 Mo par image</p>
+          <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none">
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+          <input type="text" id="galleryUrlInput" placeholder="Ou collez une URL d'image externe…" style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;outline:none">
+          <button class="btn btn-ghost" id="galleryAddUrl">+ Ajouter URL</button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+      </div>
+
+      <!-- ── SETTINGS ──────────────────────────────── -->
+      <div id="sec-settings" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Informations du site</h2><p>Nom, contact, coordonnées, réseaux sociaux</p></div>
+          <button class="btn btn-primary" id="saveSettingsBtn">💾 Sauvegarder</button>
+        </div>
+        <div class="table-card" style="padding:24px">
+          <div class="form-grid">
+            <div class="form-group"><label>Nom du site <span class="req">*</span></label><input id="s-name" type="text" placeholder="BâtiConseil Pro"></div>
+            <div class="form-group"><label>Slogan / Tagline</label><input id="s-tagline" type="text" placeholder="Votre partenaire en construction…"></div>
+            <div class="form-group span-2"><label>Description courte</label><textarea id="s-desc" rows="3" placeholder="Description pour le SEO et la section À propos"></textarea></div>
+            <div class="form-group"><label>Téléphone</label><input id="s-phone" type="tel" placeholder="+33 1 23 45 67 89"></div>
+            <div class="form-group"><label>Email de contact</label><input id="s-email" type="email" placeholder="contact@exemple.fr"></div>
+            <div class="form-group span-2"><label>Adresse</label><input id="s-address" type="text" placeholder="12 Avenue du Bâtiment, 75008 Paris"></div>
+            <div class="form-group span-2"><label>URL du logo</label><input id="s-logo" type="url" placeholder="https://… (laisser vide pour texte)"><div class="form-hint">Collez l'URL d'une image de votre galerie</div></div>
+            <div class="form-group span-2"><label>Texte du footer</label><input id="s-footer" type="text" placeholder="© 2024 BâtiConseil Pro. Tous droits réservés."></div>
+            <div class="form-group"><label>LinkedIn</label><input id="s-linkedin" type="url" placeholder="https://linkedin.com/company/…"></div>
+            <div class="form-group"><label>Facebook</label><input id="s-facebook" type="url" placeholder="https://facebook.com/…"></div>
+            <div class="form-group"><label>Instagram</label><input id="s-instagram" type="url" placeholder="https://instagram.com/…"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HERO & ABOUT ──────────────────────────── -->
+      <div id="sec-hero" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Hero & À propos</h2><p>Textes et images de la section principale</p></div>
+          <button class="btn btn-primary" id="saveHeroBtn">💾 Sauvegarder</button>
+        </div>
+        <div class="table-card" style="padding:24px;margin-bottom:20px">
+          <h3 style="font-size:0.95rem;margin-bottom:18px;color:var(--text)">🏠 Section Hero</h3>
+          <div class="form-grid">
+            <div class="form-group span-2"><label>Titre principal</label><input id="h-title" type="text" placeholder="Votre partenaire de confiance en construction"></div>
+            <div class="form-group span-2"><label>Sous-titre</label><textarea id="h-subtitle" rows="2" placeholder="Conseil, accompagnement et expertise…"></textarea></div>
+            <div class="form-group"><label>Bouton 1 — Texte</label><input id="h-cta1" type="text" placeholder="Découvrir nos services"></div>
+            <div class="form-group"><label>Bouton 1 — Lien</label><input id="h-cta1link" type="text" placeholder="#services"></div>
+            <div class="form-group"><label>Bouton 2 — Texte</label><input id="h-cta2" type="text" placeholder="Nous contacter"></div>
+            <div class="form-group"><label>Bouton 2 — Lien</label><input id="h-cta2link" type="text" placeholder="#contact"></div>
+            <div class="form-group span-2"><label>Image de fond (URL)</label><input id="h-heroimg" type="url" placeholder="https://… ou URL copiée depuis la galerie"></div>
+          </div>
+        </div>
+        <div class="table-card" style="padding:24px">
+          <h3 style="font-size:0.95rem;margin-bottom:18px;color:var(--text)">🏛️ Section À propos</h3>
+          <div class="form-grid">
+            <div class="form-group span-2"><label>Titre</label><input id="a-title" type="text" placeholder="Notre expertise à votre service"></div>
+            <div class="form-group span-2"><label>Texte</label><textarea id="a-text" rows="4" placeholder="Depuis plus de 15 ans…"></textarea></div>
+            <div class="form-group span-2"><label>Image (URL)</label><input id="a-img" type="url" placeholder="https://…"></div>
+            <div class="form-group"><label>Stat 1 — Valeur</label><input id="a-s1v" type="text" placeholder="500+"></div>
+            <div class="form-group"><label>Stat 1 — Label</label><input id="a-s1l" type="text" placeholder="Projets réalisés"></div>
+            <div class="form-group"><label>Stat 2 — Valeur</label><input id="a-s2v" type="text" placeholder="15+"></div>
+            <div class="form-group"><label>Stat 2 — Label</label><input id="a-s2l" type="text" placeholder="Années d'expérience"></div>
+            <div class="form-group"><label>Stat 3 — Valeur</label><input id="a-s3v" type="text" placeholder="98%"></div>
+            <div class="form-group"><label>Stat 3 — Label</label><input id="a-s3l" type="text" placeholder="Clients satisfaits"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── COLORS ────────────────────────────────── -->
+      <div id="sec-colors" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Couleurs & Thème</h2><p>Personnalisez l'identité visuelle de votre site</p></div>
+          <button class="btn btn-primary" id="saveColorsBtn">💾 Appliquer</button>
+        </div>
+        <div class="table-card" style="padding:24px">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Couleur principale</label>
+              <div class="color-input-row">
+                <input type="color" id="c-primary-picker">
+                <input type="text"  id="c-primary-hex" placeholder="#1a3c5e" maxlength="7">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Couleur secondaire (accent or)</label>
+              <div class="color-input-row">
+                <input type="color" id="c-secondary-picker">
+                <input type="text"  id="c-secondary-hex" placeholder="#c8a96e" maxlength="7">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Couleur d'accent (fonds clairs)</label>
+              <div class="color-input-row">
+                <input type="color" id="c-accent-picker">
+                <input type="text"  id="c-accent-hex" placeholder="#e8f4f8" maxlength="7">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Couleur sombre</label>
+              <div class="color-input-row">
+                <input type="color" id="c-dark-picker">
+                <input type="text"  id="c-dark-hex" placeholder="#0d1f2d" maxlength="7">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Couleur claire (sections)</label>
+              <div class="color-input-row">
+                <input type="color" id="c-light-picker">
+                <input type="text"  id="c-light-hex" placeholder="#f8f6f0" maxlength="7">
+              </div>
+            </div>
+          </div>
+          <div class="theme-preview" id="themePreview">
+            <div class="theme-preview-bar" id="tpBar">
+              <div class="theme-preview-dot"></div>
+              <div class="theme-preview-dot"></div>
+              <div class="theme-preview-title" id="tpTitle">Votre site</div>
+            </div>
+            <div class="theme-preview-body" id="tpBody">
+              <button class="theme-preview-btn" id="tpBtn1">Bouton principal</button>
+              <button class="theme-preview-btn" id="tpBtn2">Bouton secondaire</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── STATS ─────────────────────────────────── -->
+      <div id="sec-stats" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Statistiques clés</h2><p>Chiffres affichés dans la barre de statistiques</p></div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost btn-sm" id="addStatBtn">+ Ajouter</button>
+            <button class="btn btn-primary" id="saveStatsBtn">💾 Sauvegarder</button>
+          </div>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Icône</th><th>Valeur</th><th>Label</th><th>Actions</th>
+          </tr></thead><tbody id="statsTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── EXTENSIONS ────────────────────────────── -->
+      <div id="sec-extensions" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Extensions</h2><p>Activez ou désactivez des sections et fonctionnalités</p></div>
+          <button class="btn btn-primary" id="saveExtBtn">💾 Sauvegarder</button>
+        </div>
+        <div class="extensions-grid" id="extensionsGrid"></div>
+      </div>
+
+    </div><!-- /admin-content -->
+  </div><!-- /admin-main -->
+</div><!-- /admin-layout -->
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+<script src="../assets/js/firebase-config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

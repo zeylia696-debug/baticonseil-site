@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Article — BâtiConseil Pro</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+</head>
+<body>
+
+  <!-- LOADING -->
+  <div id="site-loading">
+    <div class="loader-ring"></div>
+    <span class="loader-text">Chargement…</span>
+  </div>
+
+  <!-- NAVBAR -->
+  <header id="navbar"></header>
+
+  <!-- ARTICLE PAGE -->
+  <main class="article-page">
+    <div class="container" style="max-width:860px">
+      <div id="article-page-content"></div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer id="footer"></footer>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+  <!-- App -->
+  <script src="assets/js/firebase-config.js"></script>
+  <script src="assets/js/site.js"></script>
+
+</body>
+</html>

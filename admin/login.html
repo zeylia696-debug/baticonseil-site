@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Panel Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+</head>
+<body class="login-page">
+
+  <div class="login-wrap">
+    <div class="login-card">
+
+      <div class="login-logo">
+        <div class="login-icon">🏗️</div>
+        <h1>Panel Admin</h1>
+        <p>BâtiConseil Pro</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="login-field">
+          <label for="loginEmail">Adresse email</label>
+          <input type="email" id="loginEmail" autocomplete="email" placeholder="admin@exemple.fr" required>
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">Mot de passe</label>
+          <div class="pwd-wrap">
+            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" required>
+            <button type="button" id="togglePwd" class="pwd-toggle" title="Afficher le mot de passe">👁</button>
+          </div>
+        </div>
+        <div id="loginError" class="login-error"></div>
+        <button type="submit" class="login-btn" id="loginBtn">
+          <span id="loginBtnText">Se connecter</span>
+          <span id="loginSpinner" class="btn-spinner" style="display:none"></span>
+        </button>
+      </form>
+
+      <p class="login-help">
+        Première connexion ? Créez votre compte administrateur dans la
+        <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console Firebase</a>
+        → Authentication → Ajouter un utilisateur.
+      </p>
+
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBhQAiSCOQBpRHBj6hW5rqr9Z12onaD1Hk",
+      authDomain: "baticonseil-sitebb.firebaseapp.com",
+      projectId: "baticonseil-sitebb",
+      storageBucket: "baticonseil-sitebb.appspot.com",
+      messagingSenderId: "1092948163478",
+      appId: "1:1092948163478:web:d0dd7f3f2b5cf721ea3bb7"
+    };
+
+    try { firebase.initializeApp(FIREBASE_CONFIG); } catch(e) {}
+
+    // Redirect if already logged in
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) window.location.replace("index.html");
+    });
+
+    // Toggle password visibility
+    document.getElementById("togglePwd").addEventListener("click", () => {
+      const inp = document.getElementById("loginPassword");
+      inp.type = inp.type === "password" ? "text" : "password";
+    });
+
+    // Login form
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn      = document.getElementById("loginBtn");
+      const btnTxt   = document.getElementById("loginBtnText");
+      const spinner  = document.getElementById("loginSpinner");
+      const errorEl  = document.getElementById("loginError");
+      const email    = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+
+      errorEl.textContent = "";
+      btnTxt.textContent  = "Connexion…";
+      spinner.style.display = "inline-block";
+      btn.disabled = true;
+
+      try {
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+        window.location.replace("index.html");
+      } catch (err) {
+        const msgs = {
+          "auth/user-not-found":     "Aucun compte trouvé avec cet email.",
+          "auth/wrong-password":     "Mot de passe incorrect.",
+          "auth/invalid-email":      "Adresse email invalide.",
+          "auth/invalid-credential": "Email ou mot de passe incorrect.",
+          "auth/too-many-requests":  "Trop de tentatives. Réessayez dans quelques minutes.",
+          "auth/network-request-failed": "Problème réseau. Vérifiez votre connexion."
+        };
+        errorEl.textContent = msgs[err.code] || `Erreur : ${err.message}`;
+        btnTxt.textContent  = "Se connecter";
+        spinner.style.display = "none";
+        btn.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>
