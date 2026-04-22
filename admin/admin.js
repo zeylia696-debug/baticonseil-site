@@ -17,11 +17,18 @@ const FIREBASE_CONFIG = {
 let db, auth, storage, currentUser;
 let appData = {};
 let firebaseReady = false;
+let storageAvailable = false;
 
 try { firebase.initializeApp(FIREBASE_CONFIG); } catch (e) {}
-db      = firebase.firestore();
-auth    = firebase.auth();
-storage = firebase.storage();
+db   = firebase.firestore();
+auth = firebase.auth();
+try {
+  storage = firebase.storage();
+  storageAvailable = true;
+} catch(e) {
+  console.warn("Firebase Storage non disponible (plan gratuit) — images en base64 compressée");
+  storageAvailable = false;
+}
 
 // ── Auth guard ──────────────────────────────────────────────
 auth.onAuthStateChanged(user => {
@@ -703,25 +710,57 @@ async function handleGalleryFiles(files) {
   if (!files?.length) return;
   for (const file of Array.from(files)) {
     if (!file.type.startsWith("image/")) { toast(`${file.name} n'est pas une image`, "error"); continue; }
-    if (file.size > 5 * 1024 * 1024) { toast(`${file.name} dépasse 5 Mo`, "warning"); continue; }
-    toast(`Upload de ${file.name}…`, "info");
+    if (file.size > 15 * 1024 * 1024) { toast(`${file.name} dépasse 15 Mo`, "warning"); continue; }
+    toast(`Compression de ${file.name}…`, "info");
     try {
       let url;
-      if (firebaseReady && storage) {
-        const ref = storage.ref(`gallery/${Date.now()}_${file.name}`);
-        await ref.put(file);
-        url = await ref.getDownloadURL();
+      if (storageAvailable && storage) {
+        try {
+          const ref = storage.ref(`gallery/${Date.now()}_${file.name}`);
+          await ref.put(file);
+          url = await ref.getDownloadURL();
+        } catch(storageErr) {
+          console.warn("Storage indisponible, fallback base64:", storageErr.message);
+          url = await compressAndEncode(file, 800, 0.75);
+        }
       } else {
-        // Fallback: base64 (small images only)
-        url = await fileToBase64(file);
+        // Compression + base64 (max ~700KB encodé pour tenir dans Firestore 1MB)
+        url = await compressAndEncode(file, 800, 0.75);
       }
       const img = { id: uid("img"), name: file.name, url, date: new Date().toISOString() };
       appData.gallery = [...(appData.gallery||[]), img];
       await saveData();
       renderGallery();
-      toast(`✅ ${file.name} uploadé !`);
+      toast(`✅ ${file.name} ajouté !`);
     } catch(e) { toast(`Erreur upload ${file.name} : ${e.message}`, "error"); }
   }
+}
+
+/** Compresse une image via Canvas et retourne une data URL */
+function compressAndEncode(file, maxPx = 800, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        // Redimensionner si trop grand
+        if (width > maxPx || height > maxPx) {
+          if (width > height) { height = Math.round(height * maxPx / width); width = maxPx; }
+          else { width = Math.round(width * maxPx / height); height = maxPx; }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function fileToBase64(file) {
