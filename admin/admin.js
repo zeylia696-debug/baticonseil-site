@@ -1,15 +1,7 @@
 // ============================================================
 // ADMIN PANEL — Firebase Auth + Firestore + Storage
+// FIREBASE_CONFIG et DEFAULT_DATA sont définis dans firebase-config.js (chargé avant)
 // ============================================================
-
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDfpL1jyl3B0FZnB8m-BvYst8SyVh5YcKA",
-  authDomain: "baticonseil-ah0izw.firebaseapp.com",
-  projectId: "baticonseil-ah0izw",
-  storageBucket: "baticonseil-ah0izw.firebasestorage.app",
-  messagingSenderId: "605781891786",
-  appId: "1:605781891786:web:116be1aec5d9c682e5f233"
-};
 
 // ============================================================
 // BOOTSTRAP
@@ -181,6 +173,29 @@ function bindGlobal() {
   document.getElementById("modalOverlay")?.addEventListener("click", e => {
     if (e.target === document.getElementById("modalOverlay")) closeModal();
   });
+
+  // Boutons statiques — liés UNE SEULE FOIS ici pour éviter les doublons
+  document.getElementById("addServiceBtn")?.addEventListener("click", () => editService(null));
+  document.getElementById("addArticleBtn")?.addEventListener("click", () => editArticle(null));
+  document.getElementById("addCatBtn")?.addEventListener("click",     () => editCategory(null));
+  document.getElementById("addTestiBtn")?.addEventListener("click",   () => editTestimonial(null));
+  document.getElementById("saveSettingsBtn")?.addEventListener("click", saveSettings);
+  document.getElementById("saveHeroBtn")?.addEventListener("click",   saveHero);
+  document.getElementById("saveColorsBtn")?.addEventListener("click", saveColors);
+  document.getElementById("addStatBtn")?.addEventListener("click",    addStat);
+  document.getElementById("saveStatsBtn")?.addEventListener("click",  saveData);
+  document.getElementById("saveExtBtn")?.addEventListener("click",    saveData);
+  document.getElementById("galleryAddUrl")?.addEventListener("click", addGalleryUrl);
+  document.getElementById("galleryFileInput")?.addEventListener("change", e => handleGalleryFiles(e.target.files));
+  document.getElementById("serviceSearch")?.addEventListener("input", renderServicesTable);
+  document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
+
+  // Drag & drop galerie
+  const zone = document.getElementById("galleryDrop");
+  zone?.addEventListener("click",     () => document.getElementById("galleryFileInput")?.click());
+  zone?.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("drag-over"); });
+  zone?.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone?.addEventListener("drop",      e => { e.preventDefault(); zone.classList.remove("drag-over"); handleGalleryFiles(e.dataTransfer.files); });
 }
 
 // ============================================================
@@ -324,10 +339,6 @@ function renderServicesTable() {
       </td></tr>`;
   }).join("") : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-m)">Aucun service trouvé</td></tr>`;
 
-  search?.addEventListener("input", renderServicesTable);
-
-  document.getElementById("addServiceBtn")?.addEventListener("click", () => editService(null));
-  document.getElementById("addServiceBtn")?.removeEventListener("click", () => editService(null)); // remove dup
 }
 
 function serviceFormHTML(s = {}, categories = []) {
@@ -439,8 +450,6 @@ function renderArticlesTable() {
       </td></tr>`;
   }).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucun article trouvé</td></tr>`;
 
-  document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
-  document.getElementById("addArticleBtn")?.addEventListener("click", () => editArticle(null));
 }
 
 function articleFormHTML(a = {}) {
@@ -530,7 +539,6 @@ function renderCategoriesTable() {
       </td>
     </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucune catégorie</td></tr>`;
 
-  document.getElementById("addCatBtn")?.addEventListener("click", () => editCategory(null));
 }
 
 function catFormHTML(c = {}) {
@@ -612,7 +620,6 @@ function renderTestimonialsTable() {
       </td>
     </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucun témoignage</td></tr>`;
 
-  document.getElementById("addTestiBtn")?.addEventListener("click", () => editTestimonial(null));
 }
 
 function testiFormHTML(t = {}) {
@@ -692,18 +699,6 @@ function renderGallery() {
       <div class="gallery-item-name">${img.name||""}</div>
     </div>`).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">Aucune image dans la galerie</p>`;
 
-  // Upload via file picker
-  const zone = document.getElementById("galleryDrop");
-  const fileInput = document.getElementById("galleryFileInput");
-
-  zone?.addEventListener("click", () => fileInput?.click());
-  fileInput?.addEventListener("change", e => handleGalleryFiles(e.target.files));
-
-  zone?.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
-  zone?.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
-  zone?.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("drag-over"); handleGalleryFiles(e.dataTransfer.files); });
-
-  document.getElementById("galleryAddUrl")?.addEventListener("click", addGalleryUrl);
 }
 
 async function handleGalleryFiles(files) {
@@ -814,8 +809,6 @@ function renderSettings() {
     "s-logo": s.logo, "s-footer": s.footerText,
     "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram };
   Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
-
-  document.getElementById("saveSettingsBtn")?.addEventListener("click", saveSettings);
 }
 
 async function saveSettings() {
@@ -854,7 +847,6 @@ function renderHero() {
     "a-s3v": a.stat3Value, "a-s3l": a.stat3Label
   };
   Object.entries(map).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
-  document.getElementById("saveHeroBtn")?.addEventListener("click", saveHero);
 }
 
 async function saveHero() {
@@ -901,7 +893,6 @@ function renderColors() {
     if (hex)    { hex.value = val;    hex.addEventListener("input",   () => { if (/^#[0-9a-f]{6}$/i.test(hex.value)) { picker.value = hex.value; updateThemePreview(); } }); }
   });
   updateThemePreview();
-  document.getElementById("saveColorsBtn")?.addEventListener("click", saveColors);
 }
 
 function updateThemePreview() {
@@ -946,8 +937,6 @@ function renderStatsSection() {
       </td>
     </tr>`).join("");
 
-  document.getElementById("addStatBtn")?.addEventListener("click", addStat);
-  document.getElementById("saveStatsBtn")?.addEventListener("click", saveData);
 }
 
 function updateStat(index, field, value) {
@@ -992,8 +981,6 @@ function renderExtensions() {
         <span class="toggle-slider"></span>
       </label>
     </div>`).join("");
-
-  document.getElementById("saveExtBtn")?.addEventListener("click", saveData);
 }
 
 async function toggleExtension(key, value) {
