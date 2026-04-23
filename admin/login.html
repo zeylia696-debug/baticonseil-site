@@ -69,6 +69,12 @@
     }
     function clearLock() { localStorage.removeItem(LOCK_KEY); }
 
+    // Reset lockout if ?reset param present (emergency use)
+    if (new URLSearchParams(location.search).has('reset')) {
+      localStorage.removeItem(LOCK_KEY);
+      localStorage.removeItem(PWD_KEY);
+    }
+
     // Already logged in?
     if (sessionStorage.getItem('scc_admin_auth') === '1') {
       window.location.replace('index.html');

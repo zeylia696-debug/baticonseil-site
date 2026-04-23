@@ -17,7 +17,13 @@ if (sessionStorage.getItem("scc_admin_auth") !== "1") {
   window.location.replace("login.html");
 } else {
   document.getElementById("sidebarUserEmail").textContent = "Administrateur";
-  initAdmin();
+  try {
+    initAdmin();
+  } catch(e) {
+    var p = document.getElementById("diagPanel");
+    if (p) { p.style.display = "block"; p.textContent = "❌ initAdmin() crash: " + e.message + "\n" + e.stack; }
+    console.error("initAdmin crash:", e);
+  }
 }
 
 // ============================================================
@@ -52,9 +58,14 @@ async function loadData() {
 function loadLocalData() {
   try {
     const saved = localStorage.getItem("bbSiteData");
-    appData = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DATA));
+    const base = (typeof DEFAULT_DATA !== "undefined") ? DEFAULT_DATA : {
+      services:[], articles:[], categories:[], testimonials:[], stats:[], gallery:[],
+      settings:{}, colors:{}, hero:{}, about:{}, extensions:{}
+    };
+    appData = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(base));
   } catch (e) {
-    appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    appData = { services:[], articles:[], categories:[], testimonials:[], stats:[], gallery:[],
+      settings:{}, colors:{}, hero:{}, about:{}, extensions:{} };
   }
 }
 

@@ -12,6 +12,19 @@
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- DIAGNOSTIC ERROR PANEL (auto-hides if no error) -->
+<div id="diagPanel" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;font-family:monospace;font-size:13px;padding:12px 16px;white-space:pre-wrap;word-break:break-all"></div>
+<script>
+  window.onerror = function(msg, src, line, col, err) {
+    var p = document.getElementById('diagPanel');
+    if (p) { p.style.display='block'; p.textContent = '❌ JS ERROR: ' + msg + '\nFichier: ' + src + '\nLigne: ' + line + ':' + col + (err ? '\n' + err.stack : ''); }
+  };
+  window.onunhandledrejection = function(e) {
+    var p = document.getElementById('diagPanel');
+    if (p) { p.style.display='block'; p.textContent = (p.textContent||'') + '\n⚠️ Promise rejetée: ' + (e.reason ? (e.reason.message || e.reason) : e); }
+  };
+</script>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" role="presentation">
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
