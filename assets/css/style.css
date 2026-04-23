@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 /* ============================================================
    DESIGN SYSTEM — SCC Brand (Synergie Conseils Constructions)
@@ -30,22 +30,24 @@
   --shadow:     0 6px 24px rgba(18,32,24,0.12);
   --shadow-lg:  0 16px 48px rgba(18,32,24,0.16);
   --shadow-xl:  0 24px 64px rgba(18,32,24,0.2);
+  --shadow-soft: 6px 6px 20px rgba(18,32,24,0.08), -2px -2px 8px rgba(255,255,255,0.55);
+  --shadow-soft-hover: 10px 10px 30px rgba(18,32,24,0.12), -3px -3px 10px rgba(255,255,255,0.65);
 
   /* Radii */
   --radius-xs:  6px;
   --radius-sm:  10px;
-  --radius:     16px;
-  --radius-lg:  24px;
-  --radius-xl:  32px;
+  --radius:     20px;
+  --radius-lg:  28px;
+  --radius-xl:  40px;
 
   /* Transitions */
   --ease:       cubic-bezier(0.4, 0, 0.2, 1);
-  --transition: 0.3s var(--ease);
-  --transition-s: 0.5s var(--ease);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-s: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Fonts */
   --font-h: 'Cormorant Garamond', Georgia, serif;
-  --font-b: 'Inter', system-ui, sans-serif;
+  --font-b: 'Montserrat', system-ui, sans-serif;
 }
 
 /* ============================================================
@@ -840,6 +842,93 @@ h3 { font-size: clamp(1.15rem, 2vw, 1.5rem); font-weight: 600; }
 .article-img-placeholder,
 .about-img-placeholder {
   background: linear-gradient(135deg, #f0ebe0 0%, #e8e0d0 50%, rgba(196,149,106,0.12) 100%);
+}
+
+/* ============================================================
+   SOFT UI — card neumorphic depth
+   ============================================================ */
+.service-card,
+.testimonial-card,
+.contact-form-card,
+.article-card {
+  box-shadow: var(--shadow-soft);
+}
+.service-card:hover,
+.article-card:hover {
+  box-shadow: var(--shadow-soft-hover);
+}
+
+/* ============================================================
+   CURSOR POINTER — all interactive elements
+   ============================================================ */
+a, button, [role="button"],
+.nav-item, .filter-btn, .service-card,
+.article-card, .quick-btn, .icon-btn,
+.extension-card label, .toggle,
+select, .footer-social a { cursor: pointer; }
+
+/* ============================================================
+   PREFERS-REDUCED-MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fade-up {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .hero-content { animation: none; }
+  .hero-bg { transition: none; }
+  @keyframes glowPulse { 0%, 100% { opacity: 0.6; } }
+  @keyframes scrollBounce { 0%, 100% { transform: translateX(-50%); } }
+}
+
+/* ============================================================
+   WCAG AA — minimum contrast enforcements
+   ============================================================ */
+/* text-m on light bg: #5A6B62 on #FAF8F3 = ~5.2:1 OK */
+/* Ensure section-sub on dark bg is readable */
+.section-green .section-sub { color: rgba(255,255,255,0.8); }
+.section-dark  .section-sub { color: rgba(255,255,255,0.8); }
+
+/* Gold on dark: #C4956A on #0F1A13 = ~5.8:1 OK */
+/* Gold on white: #C4956A on #FFF = ~2.9:1 FAIL — use darker gold for text-only */
+.service-cat-badge,
+.article-link,
+.section-label { color: #A07040; }  /* darkened gold — 4.6:1 on white */
+.section-green .section-label,
+.section-dark  .section-label { color: var(--secondary-l); } /* light on dark OK */
+
+/* ============================================================
+   ORGANIC SHAPES — softer corners on images
+   ============================================================ */
+.article-img-wrap {
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.service-card-img {
+  border-radius: 0; /* card already has overflow:hidden */
+}
+
+/* ============================================================
+   SMOOTH TRANSITIONS — normalize to 200-300ms
+   ============================================================ */
+.nav-links a,
+.nav-cta,
+.btn,
+.filter-btn,
+.footer-social a,
+.contact-item-icon {
+  transition-duration: 200ms;
+}
+.service-card,
+.article-card,
+.testimonial-card {
+  transition-duration: 250ms;
 }
 
 /* About img frame fix — border-radius on inner frame */

@@ -228,21 +228,21 @@ class SiteRenderer {
           <p>${this._esc(about.text || "Synergie Conseils Constructions accompagne particuliers et professionnels dans leurs projets de construction et de rénovation.")}</p>
           <div class="about-features">
             <div class="about-feature">
-              <div class="about-feature-icon">🎯</div>
+              <div class="about-feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
               <div class="about-feature-text">
                 <strong>Conseil sur-mesure</strong>
                 <span>Chaque projet est unique — nos recommandations aussi</span>
               </div>
             </div>
             <div class="about-feature">
-              <div class="about-feature-icon">🏗️</div>
+              <div class="about-feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></div>
               <div class="about-feature-text">
                 <strong>Maîtrise d'œuvre complète</strong>
                 <span>Coordination, suivi terrain, réception des travaux</span>
               </div>
             </div>
             <div class="about-feature">
-              <div class="about-feature-icon">🔍</div>
+              <div class="about-feature-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
               <div class="about-feature-text">
                 <strong>Expertise & diagnostic</strong>
                 <span>Rapports techniques, expertises contradictoires</span>
@@ -336,9 +336,9 @@ class SiteRenderer {
           <h3>Parlons de votre projet</h3>
           <p>Chaque projet est unique. Notre équipe est à votre écoute pour analyser vos besoins et vous proposer un accompagnement sur-mesure.</p>
           <div class="contact-items">
-            ${settings.phone ? `<div class="contact-item"><div class="contact-item-icon">📞</div><div class="contact-item-txt"><div class="label">Téléphone</div><div class="value">${settings.phone}</div></div></div>` : ""}
-            ${settings.email ? `<div class="contact-item"><div class="contact-item-icon">✉️</div><div class="contact-item-txt"><div class="label">Email</div><div class="value">${settings.email}</div></div></div>` : ""}
-            ${settings.address ? `<div class="contact-item"><div class="contact-item-icon">📍</div><div class="contact-item-txt"><div class="label">Adresse</div><div class="value">${settings.address}</div></div></div>` : ""}
+            ${settings.phone ? `<div class="contact-item"><div class="contact-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.59 1.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div class="contact-item-txt"><div class="label">Téléphone</div><div class="value">${settings.phone}</div></div></div>` : ""}
+            ${settings.email ? `<div class="contact-item"><div class="contact-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></div><div class="contact-item-txt"><div class="label">Email</div><div class="value">${settings.email}</div></div></div>` : ""}
+            ${settings.address ? `<div class="contact-item"><div class="contact-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div><div class="contact-item-txt"><div class="label">Adresse</div><div class="value">${settings.address}</div></div></div>` : ""}
           </div>
         </div>
         <div class="contact-form-card fade-up delay-2">
