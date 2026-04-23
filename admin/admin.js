@@ -1,52 +1,34 @@
 // ============================================================
-// ADMIN PANEL — Firebase Auth + Firestore + Storage
-// FIREBASE_CONFIG et DEFAULT_DATA sont définis dans firebase-config.js (chargé avant)
+// ADMIN PANEL — Local mode (no Firebase)
+// DEFAULT_DATA est défini dans firebase-config.js (chargé avant)
 // ============================================================
 
 // ============================================================
 // BOOTSTRAP
 // ============================================================
-let db, auth, storage, currentUser;
 let appData = {};
 let firebaseReady = false;
 let storageAvailable = false;
-
-try { firebase.initializeApp(FIREBASE_CONFIG); } catch (e) {}
-db   = firebase.firestore();
-auth = firebase.auth();
-try {
-  storage = firebase.storage();
-  storageAvailable = true;
-} catch(e) {
-  console.warn("Firebase Storage non disponible (plan gratuit) — images en base64 compressée");
-  storageAvailable = false;
-}
+let storage = null;
+let db = null;
 
 // ── Auth guard ──────────────────────────────────────────────
-auth.onAuthStateChanged(user => {
-  if (!user) { window.location.replace("login.html"); return; }
-  currentUser = user;
-  document.getElementById("sidebarUserEmail").textContent = user.email;
+if (sessionStorage.getItem("scc_admin_auth") !== "1") {
+  window.location.replace("login.html");
+} else {
+  document.getElementById("sidebarUserEmail").textContent = "Administrateur";
   initAdmin();
-});
+}
 
 // ============================================================
 // INIT
 // ============================================================
 async function initAdmin() {
-  toast("Connexion Firebase…", "info");
-  try {
-    await loadData();
-    firebaseReady = true;
-    document.getElementById("syncBadge").textContent = "✅ Firebase";
-    document.getElementById("syncBadge").className = "topbar-badge badge-firebase";
-    toast("Données chargées depuis Firebase", "success");
-  } catch (e) {
-    console.warn("Firebase non disponible, mode local", e);
-    loadLocalData();
-    document.getElementById("syncBadge").textContent = "💾 Local";
-    document.getElementById("syncBadge").className = "topbar-badge badge-local";
-  }
+  // Local mode — Firebase auth removed, all data in localStorage
+  loadLocalData();
+  firebaseReady = false;
+  document.getElementById("syncBadge").textContent = "💾 Local";
+  document.getElementById("syncBadge").className = "topbar-badge badge-local";
 
   renderCurrentSection();
   bindNav();
@@ -82,18 +64,17 @@ function saveLocal() {
 
 async function saveData() {
   saveLocal();
-  if (!firebaseReady) { toast("Sauvegardé localement (Firebase non disponible)", "warning"); return; }
-  try {
-    await db.collection("site").doc("data").set(appData);
-    toast("✅ Sauvegardé sur Firebase !", "success");
-  } catch (e) {
-    toast("Erreur Firebase : " + e.message, "error");
-    throw e;
-  }
+  toast("💾 Sauvegardé", "success");
 }
 
 function uid(prefix = "id") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+}
+
+function escHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 function get(path) {
@@ -117,20 +98,26 @@ let currentSection = "dashboard";
 
 function bindNav() {
   document.querySelectorAll(".nav-item").forEach(item => {
-    item.addEventListener("click", () => {
+    const activate = () => {
       const sec = item.dataset.section;
       if (!sec) return;
       currentSection = sec;
-      document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+      document.querySelectorAll(".nav-item").forEach(n => { n.classList.remove("active"); n.setAttribute("aria-selected","false"); });
       item.classList.add("active");
-      document.getElementById("topbarTitle").textContent = item.textContent.trim();
+      item.setAttribute("aria-selected","true");
+      // Strip emoji/icons from topbar title for clean display
+      const iconEl = item.querySelector(".nav-icon");
+      let titleText = item.textContent.trim();
+      if (iconEl) titleText = titleText.replace(iconEl.textContent.trim(), "").trim();
+      document.getElementById("topbarTitle").textContent = titleText;
       document.querySelectorAll(".admin-section").forEach(s => s.style.display = "none");
       const el = document.getElementById(`sec-${sec}`);
       if (el) el.style.display = "block";
       renderCurrentSection();
-      // Close mobile sidebar
       document.getElementById("sidebar").classList.remove("mobile-open");
-    });
+    };
+    item.addEventListener("click", activate);
+    item.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
   });
 }
 
@@ -160,9 +147,9 @@ function bindGlobal() {
   document.getElementById("refreshMsgBtn")?.addEventListener("click", renderMessages);
 
   // Logout
-  document.getElementById("logoutBtn").addEventListener("click", async () => {
+  document.getElementById("logoutBtn").addEventListener("click", () => {
     if (!confirm("Se déconnecter ?")) return;
-    await auth.signOut();
+    sessionStorage.removeItem("scc_admin_auth");
     window.location.replace("login.html");
   });
 
@@ -261,61 +248,88 @@ function goTo(sec) {
   document.querySelector(`[data-section="${sec}"]`)?.click();
 }
 
-async function loadRecentMessages() {
+function loadRecentMessages() {
   const el = document.getElementById("recentMessages");
   if (!el) return;
   el.innerHTML = `<div class="section-header-bar" style="margin-top:24px"><div><h2>Messages récents</h2></div><button class="btn btn-ghost btn-sm" onclick="goTo('messages')">Voir tout →</button></div>`;
-  try {
-    if (!firebaseReady) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Connectez Firebase pour voir les messages.</p>`; return; }
-    const snap = await db.collection("messages").orderBy("date","desc").limit(3).get();
-    if (snap.empty) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Aucun message reçu.</p>`; return; }
-    snap.docs.forEach(d => el.innerHTML += renderMsgCard(d.id, d.data()));
-  } catch(e) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Impossible de charger les messages.</p>`; }
+  const msgs = _getLocalMsgs().slice(0, 3);
+  if (!msgs.length) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Aucun message reçu.</p>`; return; }
+  msgs.forEach(m => el.innerHTML += renderMsgCard(m, false));
 }
 
 // ============================================================
-// MESSAGES
+// MESSAGES (localStorage)
 // ============================================================
-async function renderMessages() {
+function _getLocalMsgs() {
+  try { return JSON.parse(localStorage.getItem("bbMessages") || "[]").sort((a,b) => new Date(b.date) - new Date(a.date)); }
+  catch(e) { return []; }
+}
+function _saveLocalMsgs(msgs) {
+  localStorage.setItem("bbMessages", JSON.stringify(msgs));
+}
+
+function _ensureMsgUids() {
+  // Backfill _uid for older messages that don't have one
+  const all = JSON.parse(localStorage.getItem("bbMessages") || "[]");
+  let changed = false;
+  all.forEach(m => { if (!m._uid) { m._uid = `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`; changed = true; } });
+  if (changed) _saveLocalMsgs(all);
+  return all;
+}
+
+function renderMessages() {
   const el = document.getElementById("messagesList");
-  el.innerHTML = `<p style="color:var(--text-m);font-size:0.85rem">Chargement…</p>`;
-  if (!firebaseReady) { el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Firebase requis</h4><p>Configurez Firebase pour recevoir les messages du formulaire de contact.</p></div>`; return; }
-  try {
-    const snap = await db.collection("messages").orderBy("date","desc").get();
-    if (snap.empty) { el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Aucun message</h4><p>Les messages du formulaire de contact apparaîtront ici.</p></div>`; return; }
-    el.innerHTML = "";
-    snap.docs.forEach(d => el.innerHTML += renderMsgCard(d.id, d.data(), true));
-
-    // Update badge
-    const unread = snap.docs.filter(d => !d.data().read).length;
-    const badge = document.getElementById("msgBadge");
-    if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
-  } catch(e) { el.innerHTML = `<p style="color:var(--danger)">Erreur : ${e.message}</p>`; }
+  if (!el) return;
+  const msgs = _ensureMsgUids().sort((a,b) => new Date(b.date) - new Date(a.date));
+  if (!msgs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Aucun message</h4><p>Les messages du formulaire de contact apparaîtront ici.</p></div>`;
+  } else {
+    el.innerHTML = msgs.map(m => renderMsgCard(m, true)).join("");
+  }
+  const unread = msgs.filter(m => !m.read).length;
+  const badge = document.getElementById("msgBadge");
+  if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
 }
 
-function renderMsgCard(id, msg, showDelete = false) {
+function renderMsgCard(msg, showDelete = false) {
   const date = msg.date ? new Date(msg.date).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+  const safeUid     = escHtml(msg._uid || "");
+  const firstName   = escHtml(msg.firstName);
+  const lastName    = escHtml(msg.lastName);
+  const email       = escHtml(msg.email);
+  const subject     = escHtml(msg.subject) || "Sans objet";
+  const phone       = msg.phone ? ` · 📞 ${escHtml(msg.phone)}` : "";
+  const body        = escHtml(msg.message).replace(/\n/g, "<br>");
   return `
     <div class="message-card${msg.read ? "" : " unread"}">
       <div class="message-header">
-        <div><div class="message-sender">${msg.firstName||""} ${msg.lastName||""} <span style="font-weight:400;color:var(--text-m)">— ${msg.email||""}</span></div>
-        <div class="message-subject">📋 ${msg.subject||"Sans objet"}${msg.phone ? ` · 📞 ${msg.phone}` : ""}</div></div>
+        <div><div class="message-sender">${firstName} ${lastName} <span style="font-weight:400;color:var(--text-m)">— ${email}</span></div>
+        <div class="message-subject">📋 ${subject}${phone}</div></div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="message-date">${date}</span>
-          ${!msg.read && showDelete ? `<button class="btn btn-ghost btn-sm" onclick="markMsgRead('${id}')">Lu</button>` : ""}
-          ${showDelete ? `<button class="btn btn-danger btn-sm btn-icon" onclick="deleteMsg('${id}')">🗑</button>` : ""}
+          ${!msg.read && showDelete ? `<button class="btn btn-ghost btn-sm" onclick="markMsgRead('${safeUid}')">Lu</button>` : ""}
+          ${showDelete ? `<button class="btn btn-danger btn-sm btn-icon" aria-label="Supprimer" onclick="deleteMsg('${safeUid}')">🗑</button>` : ""}
         </div>
       </div>
-      <div class="message-body">${(msg.message||"").replace(/\n/g,"<br>")}</div>
+      <div class="message-body">${body}</div>
     </div>`;
 }
 
-async function markMsgRead(id) {
-  try { await db.collection("messages").doc(id).update({ read: true }); renderMessages(); } catch(e) {}
+function markMsgRead(uid) {
+  const all = _ensureMsgUids();
+  const m = all.find(x => x._uid === uid);
+  if (m) m.read = true;
+  _saveLocalMsgs(all);
+  renderMessages();
 }
-async function deleteMsg(id) {
+function deleteMsg(uid) {
   if (!confirm("Supprimer ce message définitivement ?")) return;
-  try { await db.collection("messages").doc(id).delete(); renderMessages(); toast("Message supprimé"); } catch(e) { toast(e.message,"error"); }
+  const all = _ensureMsgUids();
+  const idx = all.findIndex(x => x._uid === uid);
+  if (idx >= 0) all.splice(idx, 1);
+  _saveLocalMsgs(all);
+  renderMessages();
+  toast("Message supprimé");
 }
 
 // ============================================================
@@ -335,8 +349,8 @@ function renderServicesTable() {
     const cat = categories.find(c => c.id === s.categoryId);
     return `<tr>
       <td class="td-icon">${s.icon||"🔧"}</td>
-      <td><div class="td-title">${s.title}</div><div class="td-sub">${(s.description||"").slice(0,50)}…</div></td>
-      <td>${cat ? `<span class="badge badge-info">${cat.name}</span>` : "—"}</td>
+      <td><div class="td-title">${escHtml(s.title)}</div><div class="td-sub">${escHtml((s.description||"").slice(0,50))}…</div></td>
+      <td>${cat ? `<span class="badge badge-info">${escHtml(cat.name)}</span>` : "—"}</td>
       <td>${s.featured ? `<span class="badge badge-success">⭐ Oui</span>` : `<span class="badge badge-neutral">Non</span>`}</td>
       <td>${s.active !== false ? `<span class="badge badge-success">Actif</span>` : `<span class="badge badge-danger">Masqué</span>`}</td>
       <td class="td-actions">
@@ -446,8 +460,8 @@ function renderArticlesTable() {
   tbody.innerHTML = filtered.length ? filtered.map(a => {
     const date = a.date ? new Date(a.date).toLocaleDateString("fr-FR") : "—";
     return `<tr>
-      <td><div class="td-title">${a.title}</div></td>
-      <td>${a.category ? `<span class="badge badge-info">${a.category}</span>` : "—"}</td>
+      <td><div class="td-title">${escHtml(a.title)}</div></td>
+      <td>${a.category ? `<span class="badge badge-info">${escHtml(a.category)}</span>` : "—"}</td>
       <td>${date}</td>
       <td>${a.published !== false ? `<span class="badge badge-success">Publié</span>` : `<span class="badge badge-warning">Brouillon</span>`}</td>
       <td class="td-actions">
@@ -536,7 +550,7 @@ function renderCategoriesTable() {
   tbody.innerHTML = cats.length ? cats.sort((a,b)=>(a.order||99)-(b.order||99)).map(c => `
     <tr>
       <td class="td-icon">${c.icon||"🏷️"}</td>
-      <td class="td-title">${c.name}</td>
+      <td class="td-title">${escHtml(c.name)}</td>
       <td><span class="badge badge-info">${c.type||"service"}</span></td>
       <td>${c.order||1}</td>
       <td class="td-actions">
@@ -616,8 +630,8 @@ function renderTestimonialsTable() {
   if (!tbody) return;
   tbody.innerHTML = items.length ? items.map(t => `
     <tr>
-      <td class="td-title">${t.name}</td>
-      <td style="color:var(--text-m);font-size:0.82rem">${t.role||"—"}</td>
+      <td class="td-title">${escHtml(t.name)}</td>
+      <td style="color:var(--text-m);font-size:0.82rem">${escHtml(t.role)||"—"}</td>
       <td>${"★".repeat(t.rating||5)}</td>
       <td>${t.active!==false?`<span class="badge badge-success">Visible</span>`:`<span class="badge badge-neutral">Masqué</span>`}</td>
       <td class="td-actions">
@@ -970,13 +984,40 @@ async function deleteStat(id) {
 }
 
 // ============================================================
+// PASSWORD CHANGE
+// ============================================================
+async function changePwd() {
+  const p1 = document.getElementById("new-pwd")?.value;
+  const p2 = document.getElementById("new-pwd2")?.value;
+  if (!p1) { toast("Mot de passe vide", "error"); return; }
+  if (p1.length < 8) { toast("Minimum 8 caractères", "error"); return; }
+  if (p1 !== p2) { toast("Les mots de passe ne correspondent pas", "error"); return; }
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p1));
+    const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    localStorage.setItem("scc_admin_pwd", hash);
+    document.getElementById("new-pwd").value = "";
+    document.getElementById("new-pwd2").value = "";
+    toast("Mot de passe mis à jour ✅", "success");
+  } catch(e) {
+    toast("Erreur lors du changement de mot de passe", "error");
+  }
+}
+
+// ============================================================
 // EXTENSIONS
 // ============================================================
 const EXTENSION_DEFS = [
-  { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site" },
-  { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire (messages enregistrés dans Firebase)" },
-  { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse" },
-  { key: "chat",         icon: "💬", name: "Widget de chat",          desc: "Bouton flottant de chat en direct (configuration externe requise)" }
+  { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site public" },
+  { key: "gallery",      icon: "🖼️", name: "Galerie photos",         desc: "Affiche la section galerie avec toutes vos images de projets" },
+  { key: "stats",        icon: "📈", name: "Barre de statistiques",   desc: "Chiffres clés animés (projets réalisés, années d'expérience…)" },
+  { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire — messages sauvegardés localement" },
+  { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse professionnelle" },
+  { key: "chat",         icon: "💬", name: "Widget de chat",          desc: "Bouton flottant de chat en direct (Tawk.to ou Crisp — URL à configurer)" },
+  { key: "newsletter",   icon: "📧", name: "Newsletter",             desc: "Bloc d'inscription à la newsletter (Mailchimp ou autre)" },
+  { key: "faq",          icon: "❓", name: "FAQ",                    desc: "Section questions fréquentes avec accordéon interactif" },
+  { key: "team",         icon: "👥", name: "Équipe",                  desc: "Présentation des membres et collaborateurs de l'entreprise" },
+  { key: "partners",     icon: "🤝", name: "Partenaires & certifications", desc: "Logos des partenaires, labels et certifications (RGE, Qualibat…)" },
 ];
 
 function renderExtensions() {
@@ -1029,4 +1070,5 @@ window.toggleExtension   = toggleExtension;
 window.markMsgRead       = markMsgRead;
 window.deleteMsg         = deleteMsg;
 window.goTo              = goTo;
+window.changePwd         = changePwd;
 window.closeModal        = closeModal;

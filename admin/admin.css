@@ -195,7 +195,7 @@ img { max-width: 100%; }
    ============================================================ */
 .section-header-bar {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 24px; flex-wrap: gap;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 8px;
 }
 .section-header-bar h2 { font-size: 1.3rem; font-weight: 700; color: var(--text); }
 .section-header-bar p  { font-size: 0.82rem; color: var(--text-m); margin-top: 3px; }
@@ -447,7 +447,7 @@ td { padding: 12px 16px; font-size: 0.87rem; color: var(--text); vertical-align:
 .gallery-item-name {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: rgba(0,0,0,0.6); color: white;
-  font-size: 0.65rem; padding: 4px 6px; truncate: ellipsis; white-space: nowrap; overflow: hidden;
+  font-size: 0.65rem; padding: 4px 6px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
 }
 
 /* Copy URL button */

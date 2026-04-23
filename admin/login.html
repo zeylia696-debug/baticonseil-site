@@ -20,90 +20,124 @@
 
       <form id="loginForm">
         <div class="login-field">
-          <label for="loginEmail">Adresse email</label>
-          <input type="email" id="loginEmail" autocomplete="email" placeholder="admin@exemple.fr" required>
-        </div>
-        <div class="login-field">
           <label for="loginPassword">Mot de passe</label>
           <div class="pwd-wrap">
-            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" required>
-            <button type="button" id="togglePwd" class="pwd-toggle" title="Afficher le mot de passe">👁</button>
+            <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" required autofocus>
+            <button type="button" id="togglePwd" class="pwd-toggle" title="Afficher le mot de passe" aria-label="Afficher le mot de passe">👁</button>
           </div>
         </div>
-        <div id="loginError" class="login-error"></div>
+        <div id="loginError" class="login-error" role="alert" aria-live="polite"></div>
         <button type="submit" class="login-btn" id="loginBtn">
           <span id="loginBtnText">Se connecter</span>
-          <span id="loginSpinner" class="btn-spinner" style="display:none"></span>
         </button>
       </form>
-
-      <p class="login-help">
-        Première connexion ? Créez votre compte administrateur dans la
-        <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console Firebase</a>
-        → Authentication → Ajouter un utilisateur.
-      </p>
 
     </div>
   </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-
   <script>
-    const FIREBASE_CONFIG = {
-      apiKey: "AIzaSyDfpL1jyl3B0FZnB8m-BvYst8SyVh5YcKA",
-      authDomain: "baticonseil-ah0izw.firebaseapp.com",
-      projectId: "baticonseil-ah0izw",
-      storageBucket: "baticonseil-ah0izw.firebasestorage.app",
-      messagingSenderId: "605781891786",
-      appId: "1:605781891786:web:116be1aec5d9c682e5f233"
-    };
+    const PWD_KEY      = 'scc_admin_pwd';
+    // SHA-256('admin123') verified: 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
+    const DEFAULT_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+    const DEFAULT_PWD  = 'admin123'; // fallback plain-text for first-run detection
+    const LOCK_KEY     = 'scc_login_lock';
+    const MAX_TRIES    = 5;
+    const LOCK_MS      = 15 * 60 * 1000; // 15 min lockout
 
-    try { firebase.initializeApp(FIREBASE_CONFIG); } catch(e) {}
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
 
-    // Redirect if already logged in
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) window.location.replace("index.html");
+    function getLock() {
+      try { return JSON.parse(localStorage.getItem(LOCK_KEY) || '{"count":0,"ts":0}'); }
+      catch(e) { return {count:0, ts:0}; }
+    }
+    function isLocked() {
+      const l = getLock();
+      if (l.count >= MAX_TRIES) {
+        if (Date.now() - l.ts < LOCK_MS) return true;
+        localStorage.removeItem(LOCK_KEY); // lockout expired
+      }
+      return false;
+    }
+    function recordFail() {
+      const l = getLock();
+      l.count = (l.count || 0) + 1;
+      l.ts = Date.now();
+      localStorage.setItem(LOCK_KEY, JSON.stringify(l));
+    }
+    function clearLock() { localStorage.removeItem(LOCK_KEY); }
+
+    // Already logged in?
+    if (sessionStorage.getItem('scc_admin_auth') === '1') {
+      window.location.replace('index.html');
+    }
+
+    // Show lockout on page load if active
+    if (isLocked()) {
+      document.getElementById('loginError').textContent = 'Trop de tentatives. Réessayez dans 15 minutes.';
+      document.getElementById('loginBtn').disabled = true;
+    }
+
+    document.getElementById('togglePwd').addEventListener('click', () => {
+      const inp = document.getElementById('loginPassword');
+      inp.type = inp.type === 'password' ? 'text' : 'password';
     });
 
-    // Toggle password visibility
-    document.getElementById("togglePwd").addEventListener("click", () => {
-      const inp = document.getElementById("loginPassword");
-      inp.type = inp.type === "password" ? "text" : "password";
-    });
-
-    // Login form
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    document.getElementById('loginForm').addEventListener('submit', async e => {
       e.preventDefault();
-      const btn      = document.getElementById("loginBtn");
-      const btnTxt   = document.getElementById("loginBtnText");
-      const spinner  = document.getElementById("loginSpinner");
-      const errorEl  = document.getElementById("loginError");
-      const email    = document.getElementById("loginEmail").value.trim();
-      const password = document.getElementById("loginPassword").value;
+      const errEl = document.getElementById('loginError');
+      const btn   = document.getElementById('loginBtn');
+      const txt   = document.getElementById('loginBtnText');
 
-      errorEl.textContent = "";
-      btnTxt.textContent  = "Connexion…";
-      spinner.style.display = "inline-block";
+      if (isLocked()) {
+        errEl.textContent = 'Compte verrouillé. Réessayez dans 15 minutes.';
+        return;
+      }
+
+      const pwd = document.getElementById('loginPassword').value;
+      if (!pwd) return;
+
       btn.disabled = true;
+      txt.textContent = '…';
 
       try {
-        await firebase.auth().signInWithEmailAndPassword(email, password);
-        window.location.replace("index.html");
-      } catch (err) {
-        const msgs = {
-          "auth/user-not-found":     "Aucun compte trouvé avec cet email.",
-          "auth/wrong-password":     "Mot de passe incorrect.",
-          "auth/invalid-email":      "Adresse email invalide.",
-          "auth/invalid-credential": "Email ou mot de passe incorrect.",
-          "auth/too-many-requests":  "Trop de tentatives. Réessayez dans quelques minutes.",
-          "auth/network-request-failed": "Problème réseau. Vérifiez votre connexion."
-        };
-        errorEl.textContent = msgs[err.code] || `Erreur : ${err.message}`;
-        btnTxt.textContent  = "Se connecter";
-        spinner.style.display = "none";
+        const enteredHash = await sha256(pwd);
+        const storedRaw   = localStorage.getItem(PWD_KEY);
+        const storedHash  = storedRaw || DEFAULT_HASH;
+
+        // Legacy migration: if stored value is plain-text (not 64-char hex), compare directly
+        const isHashFormat = /^[0-9a-f]{64}$/.test(storedHash);
+        const match = isHashFormat
+          ? (enteredHash === storedHash)
+          : (pwd === storedHash); // old plain-text comparison
+
+        if (match) {
+          // Re-hash and store if was plain-text
+          if (!isHashFormat) localStorage.setItem(PWD_KEY, enteredHash);
+          clearLock();
+          sessionStorage.setItem('scc_admin_auth', '1');
+          window.location.replace('index.html');
+        } else {
+          recordFail();
+          const l = getLock();
+          const remaining = Math.max(0, MAX_TRIES - l.count);
+          if (remaining === 0) {
+            errEl.textContent = 'Compte verrouillé pour 15 minutes.';
+            btn.disabled = true;
+          } else {
+            errEl.textContent = `Mot de passe incorrect. ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}.`;
+            btn.disabled = false;
+            txt.textContent = 'Se connecter';
+          }
+          document.getElementById('loginPassword').value = '';
+          document.getElementById('loginPassword').focus();
+        }
+      } catch(err) {
+        errEl.textContent = 'Erreur technique. Réessayez.';
         btn.disabled = false;
+        txt.textContent = 'Se connecter';
       }
     });
   </script>
