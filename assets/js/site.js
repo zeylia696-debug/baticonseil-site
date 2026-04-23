@@ -112,13 +112,14 @@ class SiteRenderer {
     el.innerHTML = `
       <div class="hero-bg" ${bgStyle}></div>
       <div class="hero-overlay"></div>
+      <div class="hero-pattern"></div>
       <div class="container">
         <div class="hero-content">
           <div class="hero-eyebrow">
             <span class="hero-eyebrow-dot"></span>
             Cabinet de Conseil en Construction
           </div>
-          <h1 class="hero-title">${this._esc(hero.title || "Votre partenaire de confiance en <em>construction</em>")}</h1>
+          <h1 class="hero-title">${this._safeLine(hero.title || "Votre partenaire de confiance en <em>construction</em>")}</h1>
           <p class="hero-subtitle">${this._esc(hero.subtitle || "Conseil expert, accompagnement personnalisé et suivi rigoureux pour tous vos projets de construction et de rénovation.")}</p>
           <div class="hero-actions">
             <a href="${this._esc(hero.ctaLink || '#services')}" class="btn btn-primary">${this._esc(hero.ctaLabel || "Nos services")} →</a>
@@ -214,29 +215,51 @@ class SiteRenderer {
     el.innerHTML = `
       <div class="about-grid">
         <div class="about-img-wrap fade-up">
-          ${imgHtml}
+          <div class="about-img-frame">${imgHtml}</div>
           <div class="about-badge-box">
-            <div class="about-badge-num">${about.stat1Value || "500+"}</div>
-            <div class="about-badge-txt">${about.stat1Label || "Projets réalisés"}</div>
+            <div class="about-badge-num">${this._esc(about.stat1Value || "500+")}</div>
+            <div class="about-badge-txt">${this._esc(about.stat1Label || "Projets accompagnés")}</div>
           </div>
         </div>
         <div class="about-content fade-up delay-2">
           <span class="section-label">Notre histoire</span>
-          <h2>${about.title || "Notre expertise à votre service"}</h2>
-          <div class="divider"></div>
-          <p>${about.text || "Depuis plus de 15 ans, BâtiConseil Pro accompagne particuliers et professionnels dans leurs projets de construction."}</p>
-          <div class="about-stats">
-            <div>
-              <div class="about-stat-val">${about.stat2Value || "15+"}</div>
-              <div class="about-stat-lab">${about.stat2Label || "Années d'expérience"}</div>
+          <h2>${this._esc(about.title || "L'expertise SCC à votre service")}</h2>
+          <div class="divider divider-left"></div>
+          <p>${this._esc(about.text || "Synergie Conseils Constructions accompagne particuliers et professionnels dans leurs projets de construction et de rénovation.")}</p>
+          <div class="about-features">
+            <div class="about-feature">
+              <div class="about-feature-icon">🎯</div>
+              <div class="about-feature-text">
+                <strong>Conseil sur-mesure</strong>
+                <span>Chaque projet est unique — nos recommandations aussi</span>
+              </div>
             </div>
-            <div>
-              <div class="about-stat-val">${about.stat3Value || "98%"}</div>
-              <div class="about-stat-lab">${about.stat3Label || "Clients satisfaits"}</div>
+            <div class="about-feature">
+              <div class="about-feature-icon">🏗️</div>
+              <div class="about-feature-text">
+                <strong>Maîtrise d'œuvre complète</strong>
+                <span>Coordination, suivi terrain, réception des travaux</span>
+              </div>
+            </div>
+            <div class="about-feature">
+              <div class="about-feature-icon">🔍</div>
+              <div class="about-feature-text">
+                <strong>Expertise & diagnostic</strong>
+                <span>Rapports techniques, expertises contradictoires</span>
+              </div>
             </div>
           </div>
-          <br>
-          <a href="#contact" class="btn btn-dark">Prendre rendez-vous →</a>
+          <div class="about-stats">
+            <div>
+              <div class="about-stat-val">${this._esc(about.stat2Value || "15+")}</div>
+              <div class="about-stat-lab">${this._esc(about.stat2Label || "Années d'expérience")}</div>
+            </div>
+            <div>
+              <div class="about-stat-val">${this._esc(about.stat3Value || "98%")}</div>
+              <div class="about-stat-lab">${this._esc(about.stat3Label || "Clients satisfaits")}</div>
+            </div>
+          </div>
+          <a href="#contact" class="btn btn-dark" style="margin-top:28px">Prendre rendez-vous →</a>
         </div>
       </div>`;
   }
@@ -255,12 +278,12 @@ class SiteRenderer {
 
     el.innerHTML = pub.map(a => {
       const imgHtml = a.image
-        ? `<img src="${a.image}" class="article-img" alt="${a.title}" loading="lazy">`
+        ? `<img src="${this._esc(a.image)}" class="article-img" alt="${this._esc(a.title)}" loading="lazy">`
         : `<div class="article-img-placeholder">📰</div>`;
       const dateStr = a.date ? new Date(a.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "";
       return `
-        <a href="article.html?id=${a.id}" class="article-card fade-up">
-          ${imgHtml}
+        <a href="article.html?id=${this._esc(a.id)}" class="article-card fade-up">
+          <div class="article-img-wrap">${imgHtml}</div>
           <div class="article-body">
             <div class="article-meta">
               <span class="article-cat">${a.category || "Actualité"}</span>
@@ -512,6 +535,17 @@ class SiteRenderer {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#x27;");
+  }
+
+  /** Allow only em/strong/span in short inline content (titles) */
+  _safeLine(html) {
+    if (typeof DOMPurify !== "undefined") {
+      return DOMPurify.sanitize(html || "", {
+        ALLOWED_TAGS: ["em","strong","span","br"],
+        ALLOWED_ATTR: ["class"]
+      });
+    }
+    return (html || "").replace(/<(?!\/?(em|strong|span|br)[ >])[^>]*>/g, "");
   }
 
   /** Sanitize HTML content via DOMPurify (falls back to text if unavailable) */
