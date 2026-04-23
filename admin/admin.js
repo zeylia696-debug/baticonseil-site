@@ -156,6 +156,9 @@ function bindGlobal() {
   // Save all
   document.getElementById("saveAllBtn")?.addEventListener("click", saveData);
 
+  // Refresh messages
+  document.getElementById("refreshMsgBtn")?.addEventListener("click", renderMessages);
+
   // Logout
   document.getElementById("logoutBtn").addEventListener("click", async () => {
     if (!confirm("Se déconnecter ?")) return;
@@ -189,6 +192,9 @@ function bindGlobal() {
   document.getElementById("galleryFileInput")?.addEventListener("change", e => handleGalleryFiles(e.target.files));
   document.getElementById("serviceSearch")?.addEventListener("input", renderServicesTable);
   document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
+
+  // Couleurs — liés une seule fois
+  bindColors();
 
   // Drag & drop galerie
   const zone = document.getElementById("galleryDrop");
@@ -889,10 +895,19 @@ function renderColors() {
   pairs.forEach(([name, val]) => {
     const picker = document.getElementById(`c-${name}-picker`);
     const hex    = document.getElementById(`c-${name}-hex`);
-    if (picker) { picker.value = val; picker.addEventListener("input", () => { hex.value = picker.value; updateThemePreview(); }); }
-    if (hex)    { hex.value = val;    hex.addEventListener("input",   () => { if (/^#[0-9a-f]{6}$/i.test(hex.value)) { picker.value = hex.value; updateThemePreview(); } }); }
+    if (picker) picker.value = val;
+    if (hex)    hex.value    = val;
   });
   updateThemePreview();
+}
+
+function bindColors() {
+  ["primary","secondary","accent","dark","light"].forEach(name => {
+    const picker = document.getElementById(`c-${name}-picker`);
+    const hex    = document.getElementById(`c-${name}-hex`);
+    if (picker) picker.addEventListener("input", () => { if (hex) hex.value = picker.value; updateThemePreview(); });
+    if (hex)    hex.addEventListener("input",   () => { if (/^#[0-9a-f]{6}$/i.test(hex.value)) { if (picker) picker.value = hex.value; updateThemePreview(); } });
+  });
 }
 
 function updateThemePreview() {
