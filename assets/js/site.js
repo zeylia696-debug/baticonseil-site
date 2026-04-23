@@ -33,6 +33,7 @@ class SiteRenderer {
     this._renderHero(data.settings, data.hero);
     this._renderStats(data.stats);
     this._renderServices(data.services, data.categories);
+    this._renderProcess();
     this._renderAbout(data.settings, data.about);
     this._renderArticles(data.articles);
     if (data.extensions?.testimonials) this._renderTestimonials(data.testimonials);
@@ -113,6 +114,8 @@ class SiteRenderer {
       <div class="hero-bg" ${bgStyle}></div>
       <div class="hero-overlay"></div>
       <div class="hero-pattern"></div>
+      <div class="hero-blob hero-blob-1"></div>
+      <div class="hero-blob hero-blob-2"></div>
       <div class="container">
         <div class="hero-content">
           <div class="hero-eyebrow">
@@ -147,10 +150,11 @@ class SiteRenderer {
     el.innerHTML = `<div class="container"><div class="stats-grid">${
       stats.map(s => `
         <div class="stat-item fade-up">
-          <div class="stat-value">${s.value}</div>
-          <div class="stat-label">${s.label}</div>
+          <div class="stat-value" data-target="${this._esc(s.value)}">${this._esc(s.value)}</div>
+          <div class="stat-label">${this._esc(s.label)}</div>
         </div>`).join("")
     }</div></div>`;
+    this._initCounters();
   }
 
   // ──────────────────────────────────────────────
@@ -172,7 +176,7 @@ class SiteRenderer {
       const cat = categories.find(c => c.id === s.categoryId);
       const imgHtml = s.image
         ? `<img src="${s.image}" class="service-card-img" alt="${s.title}" loading="lazy">`
-        : `<div class="service-card-img-placeholder">${s.icon || "🏗️"}</div>`;
+        : `<div class="service-card-img-placeholder">${this._getServiceSVG(s.categoryId)}</div>`;
       return `
         <div class="service-card${big ? " featured" : ""} fade-up" data-cat="${s.categoryId || ""}">
           ${imgHtml}
@@ -211,7 +215,7 @@ class SiteRenderer {
     if (!el) return;
     const imgHtml = about.image
       ? `<img src="${about.image}" alt="À propos" loading="lazy">`
-      : `<div class="about-img-placeholder">🏛️</div>`;
+      : `<div class="about-img-placeholder">${this._getBuildingSVG()}</div>`;
     el.innerHTML = `
       <div class="about-grid">
         <div class="about-img-wrap fade-up">
@@ -279,7 +283,7 @@ class SiteRenderer {
     el.innerHTML = pub.map(a => {
       const imgHtml = a.image
         ? `<img src="${this._esc(a.image)}" class="article-img" alt="${this._esc(a.title)}" loading="lazy">`
-        : `<div class="article-img-placeholder">📰</div>`;
+        : `<div class="article-img-placeholder">${this._getArticleSVG()}</div>`;
       const dateStr = a.date ? new Date(a.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "";
       return `
         <a href="article.html?id=${this._esc(a.id)}" class="article-card fade-up">
@@ -320,6 +324,7 @@ class SiteRenderer {
               <div class="author-role">${t.role || ""}</div>
             </div>
           </div>
+          <div class="testimonial-trust"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Client vérifié</div>
         </div>`;
     }).join("") + `</div>`;
   }
@@ -471,7 +476,7 @@ class SiteRenderer {
           </div>
         </div>
         <div class="footer-bottom">
-          <span class="footer-bottom-text">${settings.footerText || "© 2024 BâtiConseil Pro. Tous droits réservés."}</span>
+          <span class="footer-bottom-text">${settings.footerText || "© 2025 Synergie Conseils Constructions. Tous droits réservés."}</span>
           <a href="admin/login.html" class="footer-admin-link">⚙ Admin</a>
         </div>
       </div>`;
@@ -494,7 +499,7 @@ class SiteRenderer {
       return;
     }
 
-    document.title = `${article.title} — ${data.settings?.siteName || "BâtiConseil Pro"}`;
+    document.title = `${article.title} — ${data.settings?.siteName || "Synergie Conseils Constructions"}`;
     const dateStr = article.date ? new Date(article.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "";
 
     el.innerHTML = `
@@ -560,6 +565,101 @@ class SiteRenderer {
     return (html || "").replace(/<[^>]*>/g, "");
   }
 
+  // ──────────────────────────────────────────────
+  // COUNTER ANIMATION
+  // ──────────────────────────────────────────────
+  _initCounters() {
+    const counters = document.querySelectorAll(".stat-value[data-target]");
+    if (!counters.length) return;
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const raw = el.dataset.target;
+        const num = parseFloat(raw);
+        if (isNaN(num)) return;
+        const suffix = raw.replace(/[\d.]/g, "");
+        let start = null;
+        const dur = 1600;
+        const tick = ts => {
+          if (!start) start = ts;
+          const prog = Math.min((ts - start) / dur, 1);
+          const ease = 1 - Math.pow(1 - prog, 3);
+          el.textContent = Math.round(ease * num) + suffix;
+          if (prog < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        obs.unobserve(el);
+      });
+    }, { threshold: 0.6 });
+    counters.forEach(c => obs.observe(c));
+  }
+
+  // ──────────────────────────────────────────────
+  // SVG ICON HELPERS
+  // ──────────────────────────────────────────────
+  _getServiceSVG(categoryId = "") {
+    const icons = {
+      cat1: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+      cat2: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+      cat3: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'
+    };
+    const path = icons[categoryId] || icons.cat2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  }
+
+  _getBuildingSVG() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--secondary);opacity:0.35"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`;
+  }
+
+  _getArticleSVG() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color:var(--secondary);opacity:0.45"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 0-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // PROCESS SECTION
+  // ──────────────────────────────────────────────
+  _renderProcess() {
+    if (document.getElementById("process")) return;
+    const svc = document.getElementById("services");
+    if (!svc) return;
+    const section = document.createElement("section");
+    section.id = "process";
+    section.className = "section section-light";
+    section.innerHTML = `
+      <div class="container">
+        <div class="section-header fade-up">
+          <span class="section-label">Notre méthode</span>
+          <h2 class="section-title">Comment nous travaillons</h2>
+          <div class="divider"></div>
+          <p class="section-sub">Un accompagnement structuré en quatre étapes pour mener votre projet de A à Z.</p>
+        </div>
+        <div class="steps-grid">
+          <div class="step-item fade-up">
+            <div class="step-num">1</div>
+            <h4>Diagnostic initial</h4>
+            <p>Analyse approfondie de votre projet, de vos besoins et contraintes réglementaires.</p>
+          </div>
+          <div class="step-item fade-up delay-1">
+            <div class="step-num">2</div>
+            <h4>Étude & conception</h4>
+            <p>Proposition de solutions techniques adaptées, chiffrées et planifiées.</p>
+          </div>
+          <div class="step-item fade-up delay-2">
+            <div class="step-num">3</div>
+            <h4>Suivi de chantier</h4>
+            <p>Coordination des entreprises, contrôle qualité et reporting régulier.</p>
+          </div>
+          <div class="step-item fade-up delay-3">
+            <div class="step-num">4</div>
+            <h4>Réception & livraison</h4>
+            <p>Levée des réserves, vérification de conformité et accompagnement final.</p>
+          </div>
+        </div>
+      </div>`;
+    svc.after(section);
+  }
+
   _initObserver() {
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); } });
@@ -569,7 +669,12 @@ class SiteRenderer {
 
   _hideLoader() {
     const loader = document.getElementById("site-loading");
-    if (loader) { setTimeout(() => loader.classList.add("hidden"), 400); }
+    if (!loader) return;
+    const logoEl = loader.querySelector(".loader-logo");
+    if (logoEl) {
+      logoEl.innerHTML = `<img src="assets/img/logo.png" class="loader-logo-img" alt="SCC" onerror="this.style.display='none'"><span style="font-family:var(--font-h);font-size:1.5rem;font-weight:700;color:var(--secondary);letter-spacing:0.06em">SCC</span>`;
+    }
+    setTimeout(() => loader.classList.add("hidden"), 700);
   }
 }
 
