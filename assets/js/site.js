@@ -22,6 +22,9 @@ class SiteRenderer {
     // Intersection Observer pour animations
     this._initObserver();
 
+    // Service modal
+    this._initServiceModal();
+
     // Masquer le loader
     this._hideLoader();
   }
@@ -169,7 +172,7 @@ class SiteRenderer {
 
     const catFilters = [
       `<button class="filter-btn active" data-cat="all">Tous</button>`,
-      ...categories.map(c => `<button class="filter-btn" data-cat="${c.id}">${c.icon || ""} ${c.name}</button>`)
+      ...categories.map(c => `<button class="filter-btn" data-cat="${c.id}">${this._esc(c.name)}</button>`)
     ].join("");
 
     const renderCard = (s, big = false) => {
@@ -181,10 +184,10 @@ class SiteRenderer {
         <div class="service-card${big ? " featured" : ""} fade-up" data-cat="${s.categoryId || ""}">
           ${imgHtml}
           <div class="service-card-body">
-            ${cat ? `<span class="service-cat-badge">${cat.icon || ""} ${cat.name}</span>` : ""}
+            ${cat ? `<span class="service-cat-badge">${this._esc(cat.name)}</span>` : ""}
             <h3>${s.title}</h3>
             <p>${s.description}</p>
-            <span class="service-card-link">En savoir plus →</span>
+            <button class="service-card-link" data-id="${this._esc(s.id)}" aria-label="En savoir plus sur ${this._esc(s.title)}">En savoir plus <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
           </div>
         </div>`;
     };
@@ -373,8 +376,8 @@ class SiteRenderer {
             </div>
             <div class="form-group"><label>Message *</label><textarea id="cf-message" required placeholder="Décrivez votre projet..."></textarea></div>
             <button type="submit" class="btn btn-primary" id="cf-submit" style="width:100%;justify-content:center">Envoyer le message →</button>
-            <div class="form-success" id="cf-success">✅ Message envoyé ! Nous vous répondrons dans les plus brefs délais.</div>
-            <div class="form-error" id="cf-error">❌ Une erreur s'est produite. Veuillez réessayer.</div>
+            <div class="form-success" id="cf-success">Message envoyé — nous vous répondrons dans les plus brefs délais.</div>
+            <div class="form-error" id="cf-error">Une erreur s'est produite. Veuillez réessayer.</div>
           </form>
         </div>
       </div>`;
@@ -477,7 +480,7 @@ class SiteRenderer {
         </div>
         <div class="footer-bottom">
           <span class="footer-bottom-text">${settings.footerText || "© 2025 Synergie Conseils Constructions. Tous droits réservés."}</span>
-          <a href="admin/login.html" class="footer-admin-link">⚙ Admin</a>
+          <a href="admin/login.html" class="footer-admin-link"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Admin</a>
         </div>
       </div>`;
   }
@@ -508,7 +511,7 @@ class SiteRenderer {
       <div class="article-page-header">
         <div class="article-page-meta">
           <span class="article-cat">${article.category || "Actualité"}</span>
-          ${dateStr ? `<span class="article-date">📅 ${dateStr}</span>` : ""}
+          ${dateStr ? `<span class="article-date">${dateStr}</span>` : ""}
         </div>
         <h1 class="article-page-title">${article.title}</h1>
         ${article.excerpt ? `<p style="color:var(--text-m);font-size:1.1rem;margin-top:14px;font-style:italic">${article.excerpt}</p>` : ""}
@@ -566,6 +569,85 @@ class SiteRenderer {
   }
 
   // ──────────────────────────────────────────────
+  // SERVICE MODAL
+  // ──────────────────────────────────────────────
+  _initServiceModal() {
+    if (document.getElementById("svcModalBackdrop")) return;
+    const el = document.createElement("div");
+    el.id = "svcModalBackdrop";
+    el.className = "svc-modal-backdrop";
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-labelledby", "svcModalTitle");
+    el.innerHTML = `
+      <div class="svc-modal">
+        <button class="svc-modal-close" id="svcModalClose" aria-label="Fermer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+        <div id="svcModalImage"></div>
+        <div class="svc-modal-body">
+          <span class="svc-modal-cat" id="svcModalCat"></span>
+          <h2 class="svc-modal-title" id="svcModalTitle"></h2>
+          <div class="svc-modal-divider"></div>
+          <p class="svc-modal-desc" id="svcModalDesc"></p>
+        </div>
+        <div class="svc-modal-footer">
+          <a href="#contact" class="btn btn-primary" id="svcModalCta">Prendre contact →</a>
+          <button class="btn btn-ghost-green" id="svcModalCloseBtn">Fermer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+
+    // Close triggers
+    el.addEventListener("click", e => { if (e.target === el) this._closeServiceModal(); });
+    document.getElementById("svcModalClose")?.addEventListener("click", () => this._closeServiceModal());
+    document.getElementById("svcModalCloseBtn")?.addEventListener("click", () => this._closeServiceModal());
+    document.getElementById("svcModalCta")?.addEventListener("click", () => this._closeServiceModal());
+    document.addEventListener("keydown", e => { if (e.key === "Escape") this._closeServiceModal(); });
+
+    // Open trigger — delegated
+    document.addEventListener("click", e => {
+      const btn = e.target.closest(".service-card-link[data-id]");
+      if (btn) { e.preventDefault(); this._openServiceModal(btn.dataset.id); }
+    });
+  }
+
+  _openServiceModal(id) {
+    const backdrop = document.getElementById("svcModalBackdrop");
+    if (!backdrop) return;
+    const data = this.dm._data;
+    const svc = (data.services || []).find(s => s.id === id);
+    if (!svc) return;
+    const cat = (data.categories || []).find(c => c.id === svc.categoryId);
+
+    const imgEl = document.getElementById("svcModalImage");
+    if (imgEl) {
+      imgEl.innerHTML = svc.image
+        ? `<img src="${this._esc(svc.image)}" class="svc-modal-img" alt="${this._esc(svc.title)}" loading="lazy">`
+        : `<div class="svc-modal-img-placeholder">${this._getServiceSVG(svc.categoryId, 80)}</div>`;
+    }
+
+    const catEl = document.getElementById("svcModalCat");
+    if (catEl) catEl.textContent = cat ? cat.name : "";
+
+    const titleEl = document.getElementById("svcModalTitle");
+    if (titleEl) titleEl.textContent = svc.title || "";
+
+    const descEl = document.getElementById("svcModalDesc");
+    if (descEl) descEl.textContent = svc.description || "";
+
+    document.body.style.overflow = "hidden";
+    backdrop.classList.add("open");
+    setTimeout(() => document.getElementById("svcModalClose")?.focus(), 50);
+  }
+
+  _closeServiceModal() {
+    const backdrop = document.getElementById("svcModalBackdrop");
+    if (backdrop) backdrop.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  // ──────────────────────────────────────────────
   // COUNTER ANIMATION
   // ──────────────────────────────────────────────
   _initCounters() {
@@ -598,14 +680,14 @@ class SiteRenderer {
   // ──────────────────────────────────────────────
   // SVG ICON HELPERS
   // ──────────────────────────────────────────────
-  _getServiceSVG(categoryId = "") {
+  _getServiceSVG(categoryId = "", size = 56) {
     const icons = {
       cat1: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
       cat2: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
       cat3: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'
     };
     const path = icons[categoryId] || icons.cat2;
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
   }
 
   _getBuildingSVG() {
