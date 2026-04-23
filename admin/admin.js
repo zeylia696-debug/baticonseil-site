@@ -11,6 +11,7 @@ let firebaseReady = false;
 let storageAvailable = false;
 let storage = null;
 let db = null;
+let currentSection = "dashboard"; // must be top-level — used by hoisted initAdmin()
 
 // ── Auth guard ──────────────────────────────────────────────
 if (sessionStorage.getItem("scc_admin_auth") !== "1") {
@@ -105,8 +106,6 @@ function set(path, value) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-let currentSection = "dashboard";
-
 function bindNav() {
   document.querySelectorAll(".nav-item").forEach(item => {
     const activate = () => {
