@@ -77,9 +77,10 @@ class SiteRenderer {
   _renderNav(settings = {}, categories = [], services = []) {
     const el = document.getElementById("navbar");
     if (!el) return;
+    const siteName = this._esc(settings.siteName || "Synergie Conseils Constructions");
     const logo = settings.logo
-      ? `<img src="${settings.logo}" class="nav-brand-logo" alt="${settings.siteName}">`
-      : `<span>${settings.siteName || "BâtiConseil Pro"}</span>`;
+      ? `<img src="${this._esc(settings.logo)}" class="nav-brand-logo" alt="${siteName}">`
+      : `<span>${siteName}</span>`;
     el.innerHTML = `
       <div class="container">
         <div class="nav-inner">
@@ -106,18 +107,27 @@ class SiteRenderer {
   _renderHero(settings = {}, hero = {}) {
     const el = document.getElementById("hero");
     if (!el) return;
-    const bgStyle = settings.heroImage ? `style="background-image:url('${settings.heroImage}')"` : "";
+    const bgStyle = settings.heroImage
+      ? `style="background-image:url('${this._esc(settings.heroImage)}')"` : "";
     el.innerHTML = `
       <div class="hero-bg" ${bgStyle}></div>
       <div class="hero-overlay"></div>
       <div class="container">
         <div class="hero-content">
-          <div class="hero-badge">🏗️ Expertise &amp; Construction</div>
-          <h1 class="hero-title">${hero.title || "Votre partenaire de confiance en construction"}</h1>
-          <p class="hero-subtitle">${hero.subtitle || "Conseil, accompagnement et expertise pour tous vos projets, de A à Z."}</p>
+          <div class="hero-eyebrow">
+            <span class="hero-eyebrow-dot"></span>
+            Cabinet de Conseil en Construction
+          </div>
+          <h1 class="hero-title">${this._esc(hero.title || "Votre partenaire de confiance en <em>construction</em>")}</h1>
+          <p class="hero-subtitle">${this._esc(hero.subtitle || "Conseil expert, accompagnement personnalisé et suivi rigoureux pour tous vos projets de construction et de rénovation.")}</p>
           <div class="hero-actions">
-            <a href="${hero.ctaLink || '#services'}" class="btn btn-primary">${hero.ctaLabel || "Découvrir nos services"} →</a>
-            <a href="${hero.ctaSecondLink || '#contact'}" class="btn btn-outline">${hero.ctaSecondLabel || "Nous contacter"}</a>
+            <a href="${this._esc(hero.ctaLink || '#services')}" class="btn btn-primary">${this._esc(hero.ctaLabel || "Nos services")} →</a>
+            <a href="${this._esc(hero.ctaSecondLink || '#contact')}" class="btn btn-outline">${this._esc(hero.ctaSecondLabel || "Prendre contact")}</a>
+          </div>
+          <div class="hero-trust">
+            <div class="hero-trust-item"><strong>500+</strong> projets accompagnés</div>
+            <div class="hero-trust-item"><strong>15+</strong> ans d'expérience</div>
+            <div class="hero-trust-item"><strong>98%</strong> clients satisfaits</div>
           </div>
         </div>
       </div>
@@ -310,14 +320,18 @@ class SiteRenderer {
         </div>
         <div class="contact-form-card fade-up delay-2">
           <h3>Envoyez-nous un message</h3>
-          <form id="contactForm">
-            <div class="form-row">
-              <div class="form-group"><label>Prénom *</label><input type="text" id="cf-first" required placeholder="Jean"></div>
-              <div class="form-group"><label>Nom *</label><input type="text" id="cf-last" required placeholder="Dupont"></div>
+          <form id="contactForm" autocomplete="on">
+            <!-- Honeypot anti-spam (hidden from real users) -->
+            <div style="display:none" aria-hidden="true">
+              <input type="text" id="cf-trap" name="website" tabindex="-1" autocomplete="off">
             </div>
             <div class="form-row">
-              <div class="form-group"><label>Email *</label><input type="email" id="cf-email" required placeholder="jean@exemple.fr"></div>
-              <div class="form-group"><label>Téléphone</label><input type="tel" id="cf-phone" placeholder="+33 6 12 34 56 78"></div>
+              <div class="form-group"><label>Prénom *</label><input type="text" id="cf-first" required placeholder="Jean" maxlength="60" autocomplete="given-name"></div>
+              <div class="form-group"><label>Nom *</label><input type="text" id="cf-last" required placeholder="Dupont" maxlength="60" autocomplete="family-name"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Email *</label><input type="email" id="cf-email" required placeholder="jean@exemple.fr" maxlength="120" autocomplete="email"></div>
+              <div class="form-group"><label>Téléphone</label><input type="tel" id="cf-phone" placeholder="+33 6 12 34 56 78" maxlength="20" autocomplete="tel"></div>
             </div>
             <div class="form-group"><label>Sujet *</label>
               <select id="cf-subject" required>
@@ -346,15 +360,25 @@ class SiteRenderer {
     const ok = document.getElementById("cf-success");
     const err = document.getElementById("cf-error");
     ok.style.display = "none"; err.style.display = "none";
+
+    // Honeypot check — bots fill hidden field
+    if (document.getElementById("cf-trap")?.value) return;
+
     btn.textContent = "Envoi en cours…"; btn.disabled = true;
 
+    const rawMsg = document.getElementById("cf-message").value.trim();
+    if (rawMsg.length > 2000) {
+      err.textContent = "Message trop long (max 2000 caractères).";
+      err.style.display = "block"; btn.textContent = "Envoyer le message →"; btn.disabled = false; return;
+    }
+
     const msg = {
-      firstName: document.getElementById("cf-first").value.trim(),
-      lastName:  document.getElementById("cf-last").value.trim(),
-      email:     document.getElementById("cf-email").value.trim(),
-      phone:     document.getElementById("cf-phone").value.trim(),
+      firstName: document.getElementById("cf-first").value.trim().slice(0, 60),
+      lastName:  document.getElementById("cf-last").value.trim().slice(0, 60),
+      email:     document.getElementById("cf-email").value.trim().slice(0, 120),
+      phone:     document.getElementById("cf-phone").value.trim().slice(0, 20),
       subject:   document.getElementById("cf-subject").value,
-      message:   document.getElementById("cf-message").value.trim(),
+      message:   rawMsg.slice(0, 2000),
       date:      new Date().toISOString(),
       read:      false
     };
@@ -386,17 +410,28 @@ class SiteRenderer {
     if (!el) return;
     const activeServices = (services || []).filter(s => s.active !== false).slice(0, 5);
     const social = [
-      settings.socialLinkedIn ? `<a href="${settings.socialLinkedIn}" title="LinkedIn">in</a>` : "",
-      settings.socialFacebook ? `<a href="${settings.socialFacebook}" title="Facebook">f</a>` : "",
-      settings.socialInstagram ? `<a href="${settings.socialInstagram}" title="Instagram">ig</a>` : ""
+      settings.socialLinkedIn ? `<a href="${this._esc(settings.socialLinkedIn)}" title="LinkedIn" rel="noopener noreferrer" target="_blank">in</a>` : "",
+      settings.socialFacebook ? `<a href="${this._esc(settings.socialFacebook)}" title="Facebook" rel="noopener noreferrer" target="_blank">f</a>` : "",
+      settings.socialInstagram ? `<a href="${this._esc(settings.socialInstagram)}" title="Instagram" rel="noopener noreferrer" target="_blank">ig</a>` : ""
     ].filter(Boolean).join("");
+
+    const logoHtml = settings.logo
+      ? `<img src="${this._esc(settings.logo)}" alt="${this._esc(settings.siteName)}">`
+      : "";
+    const siteName = this._esc(settings.siteName || "Synergie Conseils Constructions");
 
     el.innerHTML = `
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand">
-            <div class="footer-logo">${settings.siteName || "BâtiConseil Pro"}</div>
-            <p class="footer-desc">${settings.tagline || "Votre partenaire en construction, de A à Z"}</p>
+            <div class="footer-logo">
+              ${logoHtml}
+              <div>
+                <div class="footer-logo-text">${siteName}</div>
+                <span class="footer-logo-abbr">SCC</span>
+              </div>
+            </div>
+            <p class="footer-desc">${this._esc(settings.tagline || "L'expertise au service de vos projets de construction")}</p>
             ${social ? `<div class="footer-social">${social}</div>` : ""}
           </div>
           <div class="footer-col">
@@ -450,7 +485,7 @@ class SiteRenderer {
         <h1 class="article-page-title">${article.title}</h1>
         ${article.excerpt ? `<p style="color:var(--text-m);font-size:1.1rem;margin-top:14px;font-style:italic">${article.excerpt}</p>` : ""}
       </div>
-      <div class="article-content">${article.content || ""}</div>
+      <div class="article-content">${this._safe(article.content)}</div>
       <div style="margin-top:48px;padding-top:32px;border-top:1px solid var(--border)">
         <h3 style="font-size:1.2rem;color:var(--primary-d);margin-bottom:20px">Autres articles</h3>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -467,6 +502,30 @@ class SiteRenderer {
   // ──────────────────────────────────────────────
   // HELPERS
   // ──────────────────────────────────────────────
+
+  /** Escape untrusted string for safe HTML attribute/text insertion */
+  _esc(str) {
+    if (str == null) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
+  }
+
+  /** Sanitize HTML content via DOMPurify (falls back to text if unavailable) */
+  _safe(html) {
+    if (typeof DOMPurify !== "undefined") {
+      return DOMPurify.sanitize(html || "", {
+        ALLOWED_TAGS: ["p","br","strong","em","b","i","ul","ol","li","h2","h3","h4","blockquote","a","span"],
+        ALLOWED_ATTR: ["href","target","rel","class"]
+      });
+    }
+    // Fallback: strip all tags
+    return (html || "").replace(/<[^>]*>/g, "");
+  }
+
   _initObserver() {
     const obs = new IntersectionObserver(entries => {
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); } });

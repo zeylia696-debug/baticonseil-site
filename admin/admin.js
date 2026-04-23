@@ -831,7 +831,7 @@ async function saveSettings() {
   s.socialFacebook = document.getElementById("s-facebook")?.value.trim();
   s.socialInstagram= document.getElementById("s-instagram")?.value.trim();
   appData.settings = s;
-  document.getElementById("sidebarLogo").textContent = s.siteName || "BâtiConseil Pro";
+  document.getElementById("sidebarLogo").textContent = s.siteName || "SCC";
   await saveData();
 }
 

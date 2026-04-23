@@ -3,15 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="BâtiConseil Pro — Conseil, accompagnement et expertise en construction de A à Z.">
-  <title>BâtiConseil Pro — Votre partenaire en construction</title>
+  <meta name="description" content="Synergie Conseils Constructions — Cabinet de conseil en construction, maîtrise d'œuvre et expertise technique en Auvergne et partout en France.">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Synergie Conseils Constructions — SCC">
+  <meta property="og:description" content="Conseil, maîtrise d'œuvre et expertise technique pour tous vos projets de construction et rénovation.">
+  <meta property="og:type" content="website">
+  <!-- Security -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">
+  <title>Synergie Conseils Constructions — SCC</title>
   <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+  <link rel="icon" href="assets/img/logo.png" onerror="this.href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏗</text></svg>'">
 </head>
 <body>
 
   <!-- LOADING -->
   <div id="site-loading">
+    <div class="loader-logo">SCC</div>
     <div class="loader-ring"></div>
     <span class="loader-text">Chargement…</span>
   </div>
@@ -22,7 +31,9 @@
   <main>
 
     <!-- HERO -->
-    <section id="hero"></section>
+    <section id="hero">
+      <div class="hero-pattern"></div>
+    </section>
 
     <!-- STATS -->
     <section id="stats"></section>
@@ -30,8 +41,8 @@
     <!-- SERVICES -->
     <section id="services" class="section section-light">
       <div class="container">
-        <div class="section-header">
-          <span class="section-label">Ce que nous faisons</span>
+        <div class="section-header fade-up">
+          <span class="section-label">Expertise & Conseil</span>
           <h2 class="section-title">Nos services</h2>
           <div class="divider"></div>
           <p class="section-sub">De l'étude de faisabilité à la réception des travaux, nous vous accompagnons à chaque étape de votre projet.</p>
@@ -48,23 +59,23 @@
     </section>
 
     <!-- ARTICLES -->
-    <section id="articles" class="section section-accent">
+    <section id="articles" class="section section-cream">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header fade-up">
           <span class="section-label">Ressources</span>
           <h2 class="section-title">Actualités & Conseils</h2>
           <div class="divider"></div>
-          <p class="section-sub">Découvrez nos articles pour mieux préparer votre projet de construction ou de rénovation.</p>
+          <p class="section-sub">Découvrez nos articles pour mieux préparer et sécuriser votre projet de construction ou de rénovation.</p>
         </div>
         <div class="articles-grid" id="articles-grid"></div>
       </div>
     </section>
 
     <!-- TESTIMONIALS -->
-    <section id="testimonials" class="section section-dark">
+    <section id="testimonials" class="section section-green">
       <div class="container">
-        <div class="section-header">
-          <span class="section-label" style="color:var(--secondary)">Ils nous font confiance</span>
+        <div class="section-header fade-up">
+          <span class="section-label">Ils nous font confiance</span>
           <h2 class="section-title">Témoignages clients</h2>
           <div class="divider"></div>
           <p class="section-sub">La satisfaction de nos clients est notre meilleure récompense.</p>
@@ -76,11 +87,11 @@
     <!-- CONTACT -->
     <section id="contact" class="section">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header fade-up">
           <span class="section-label">Contactez-nous</span>
           <h2 class="section-title">Parlons de votre projet</h2>
           <div class="divider"></div>
-          <p class="section-sub">Notre équipe est disponible pour répondre à toutes vos questions et vous accompagner.</p>
+          <p class="section-sub">Notre équipe est disponible pour répondre à toutes vos questions et vous accompagner dans votre projet.</p>
         </div>
         <div id="contact-content"></div>
       </div>
@@ -90,6 +101,9 @@
 
   <!-- FOOTER -->
   <footer id="footer"></footer>
+
+  <!-- DOMPurify — XSS sanitization -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>

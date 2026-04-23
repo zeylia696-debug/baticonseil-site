@@ -16,39 +16,39 @@ const FIREBASE_CONFIG = {
 // ============================================================
 const DEFAULT_DATA = {
   settings: {
-    siteName: "BâtiConseil Pro",
-    tagline: "Votre partenaire en construction, de A à Z",
-    description: "Expertise, accompagnement et suivi de projet pour tous vos travaux de construction et de rénovation.",
-    phone: "+33 1 23 45 67 89",
-    email: "contact@baticonseil.fr",
-    address: "12 Avenue du Bâtiment, 75008 Paris",
+    siteName: "Synergie Conseils Constructions",
+    tagline: "L'expertise au service de vos projets de construction",
+    description: "Cabinet de conseil en construction, accompagnement de A à Z : étude de faisabilité, maîtrise d'œuvre, expertise technique et suivi de chantier.",
+    phone: "+33 4 73 XX XX XX",
+    email: "contact@synergie-cc.fr",
+    address: "Clermont-Ferrand, Auvergne",
     heroImage: "",
-    logo: "",
-    footerText: "© 2024 BâtiConseil Pro. Tous droits réservés.",
+    logo: "assets/img/logo.png",
+    footerText: "© 2024 Synergie Conseils Constructions. Tous droits réservés.",
     socialLinkedIn: "",
     socialFacebook: "",
     socialInstagram: ""
   },
   colors: {
-    primary: "#1a3c5e",
-    secondary: "#c8a96e",
-    accent: "#e8f4f8",
-    dark: "#0d1f2d",
-    light: "#f8f6f0"
+    primary: "#1E3A2F",
+    secondary: "#C4956A",
+    accent: "#F5F0E8",
+    dark: "#0F1A13",
+    light: "#FAF8F3"
   },
   hero: {
     title: "Votre partenaire de confiance en construction",
-    subtitle: "Conseil, accompagnement et expertise pour tous vos projets, de A à Z.",
-    ctaLabel: "Découvrir nos services",
+    subtitle: "Conseil expert, accompagnement personnalisé et suivi rigoureux pour tous vos projets de construction et de rénovation.",
+    ctaLabel: "Nos services",
     ctaLink: "#services",
-    ctaSecondLabel: "Nous contacter",
+    ctaSecondLabel: "Prendre contact",
     ctaSecondLink: "#contact"
   },
   about: {
-    title: "Notre expertise à votre service",
-    text: "Depuis plus de 15 ans, BâtiConseil Pro accompagne particuliers et professionnels dans leurs projets de construction et de rénovation. Notre équipe d'experts vous guide à chaque étape, du diagnostic initial à la réception des travaux.",
+    title: "L'expertise SCC à votre service",
+    text: "Synergie Conseils Constructions accompagne particuliers et professionnels dans leurs projets de construction et de rénovation en Auvergne et partout en France. Notre équipe d'experts vous guide à chaque étape, du diagnostic initial à la réception des travaux.",
     image: "",
-    stat1Label: "Projets réalisés",
+    stat1Label: "Projets accompagnés",
     stat1Value: "500+",
     stat2Label: "Années d'expérience",
     stat2Value: "15+",
@@ -116,7 +116,7 @@ const DEFAULT_DATA = {
     }
   ],
   testimonials: [
-    { id: "t1", name: "Sophie M.", role: "Propriétaire - Maison individuelle", text: "Grâce à BâtiConseil Pro, notre chantier s'est déroulé sans accroc. Leur expertise nous a évité de nombreux problèmes. Je recommande vivement !", rating: 5, active: true },
+    { id: "t1", name: "Sophie M.", role: "Propriétaire - Maison individuelle", text: "Grâce à SCC, notre chantier s'est déroulé sans accroc. Leur expertise nous a évité de nombreux problèmes. Je recommande vivement !", rating: 5, active: true },
     { id: "t2", name: "Laurent D.", role: "Promoteur immobilier", text: "Un partenaire de confiance pour tous nos projets. Réactivité, professionnalisme et conseils avisés sont au rendez-vous à chaque fois.", rating: 5, active: true },
     { id: "t3", name: "Marie & Pierre F.", role: "Maîtres d'ouvrage - Rénovation", text: "Le suivi de chantier assuré par leur équipe nous a permis de recevoir des travaux conformes à nos attentes. Excellent rapport qualité-prix.", rating: 4, active: true }
   ],
