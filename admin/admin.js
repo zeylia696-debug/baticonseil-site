@@ -13,6 +13,20 @@ let storage = null;
 let db = null;
 let currentSection = "dashboard"; // must be top-level — used by hoisted initAdmin()
 
+// Extension definitions — const hoisted to TDZ; keep here before any call
+const EXTENSION_DEFS = [
+  { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site public" },
+  { key: "gallery",      icon: "🖼️", name: "Galerie photos",         desc: "Affiche la section galerie avec toutes vos images de projets" },
+  { key: "stats",        icon: "📈", name: "Barre de statistiques",   desc: "Chiffres clés animés (projets réalisés, années d'expérience…)" },
+  { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire — messages sauvegardés localement" },
+  { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse professionnelle" },
+  { key: "chat",         icon: "💬", name: "Widget de chat",          desc: "Bouton flottant de chat en direct (Tawk.to ou Crisp — URL à configurer)" },
+  { key: "newsletter",   icon: "📧", name: "Newsletter",             desc: "Bloc d'inscription à la newsletter (Mailchimp ou autre)" },
+  { key: "faq",          icon: "❓", name: "FAQ",                    desc: "Section questions fréquentes avec accordéon interactif" },
+  { key: "team",         icon: "👥", name: "Équipe",                  desc: "Présentation des membres et collaborateurs de l'entreprise" },
+  { key: "partners",     icon: "🤝", name: "Partenaires & certifications", desc: "Logos des partenaires, labels et certifications (RGE, Qualibat…)" },
+];
+
 // ── Auth guard ──────────────────────────────────────────────
 if (sessionStorage.getItem("scc_admin_auth") !== "1") {
   window.location.replace("login.html");
@@ -1017,19 +1031,6 @@ async function changePwd() {
 // ============================================================
 // EXTENSIONS
 // ============================================================
-const EXTENSION_DEFS = [
-  { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site public" },
-  { key: "gallery",      icon: "🖼️", name: "Galerie photos",         desc: "Affiche la section galerie avec toutes vos images de projets" },
-  { key: "stats",        icon: "📈", name: "Barre de statistiques",   desc: "Chiffres clés animés (projets réalisés, années d'expérience…)" },
-  { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire — messages sauvegardés localement" },
-  { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse professionnelle" },
-  { key: "chat",         icon: "💬", name: "Widget de chat",          desc: "Bouton flottant de chat en direct (Tawk.to ou Crisp — URL à configurer)" },
-  { key: "newsletter",   icon: "📧", name: "Newsletter",             desc: "Bloc d'inscription à la newsletter (Mailchimp ou autre)" },
-  { key: "faq",          icon: "❓", name: "FAQ",                    desc: "Section questions fréquentes avec accordéon interactif" },
-  { key: "team",         icon: "👥", name: "Équipe",                  desc: "Présentation des membres et collaborateurs de l'entreprise" },
-  { key: "partners",     icon: "🤝", name: "Partenaires & certifications", desc: "Logos des partenaires, labels et certifications (RGE, Qualibat…)" },
-];
-
 function renderExtensions() {
   const exts = appData.extensions || {};
   const grid = document.getElementById("extensionsGrid");
