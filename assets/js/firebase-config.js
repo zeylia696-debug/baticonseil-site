@@ -137,6 +137,11 @@ const DEFAULT_DATA = {
 
 // ============================================================
 // DATA MANAGER — Firebase + LocalStorage
+// Sync strategy:
+//   1. _loadLocal()   → render immediately from localStorage (fast)
+//   2. _syncFromFirebase() → Firestore onSnapshot for real-time cross-device sync
+//   3. storage event  → instant same-browser cross-tab sync (admin → public)
+//   4. _savedAt stamp → timestamp gating prevents old Firestore from overwriting new local
 // ============================================================
 class DataManager {
   constructor() {
@@ -145,26 +150,54 @@ class DataManager {
     this._firebaseReady = false;
     this._db = null;
     this._unsubscribe = null;
+
+    // ── Cross-tab sync ───────────────────────────────────────
+    // When admin (different tab, same origin) writes localStorage,
+    // the public site tab receives this event and re-renders instantly
+    // without waiting for Firestore onSnapshot.
+    window.addEventListener("storage", (e) => {
+      if (e.key !== "bbSiteData" || !e.newValue) return;
+      try {
+        const parsed   = JSON.parse(e.newValue);
+        const incoming = parsed._savedAt || 0;
+        const current  = this._data._savedAt || 0;
+        if (incoming >= current) {
+          // Merge in-place so existing object references stay valid
+          this._applyData(parsed);
+          this._notifyAll();
+        }
+      } catch (_) {}
+    });
   }
 
+  // ── Init ────────────────────────────────────────────────────
   async init() {
     this._loadLocal();
+    this._notifyAll(); // render at once from localStorage — don't wait for Firebase
+
     try {
-      firebase.initializeApp(FIREBASE_CONFIG);
-      this._db = firebase.firestore();
+      // Guard against duplicate-app error when page re-initialises
+      let app;
+      try { app = firebase.initializeApp(FIREBASE_CONFIG); }
+      catch (e) {
+        if (e.code === "app/duplicate-app") { app = firebase.app(); }
+        else { throw e; }
+      }
+      this._db = app.firestore ? app.firestore() : firebase.firestore();
       await this._syncFromFirebase();
       this._firebaseReady = true;
       console.log("✅ Firebase connecté");
     } catch (e) {
-      console.warn("⚠️ Firebase non disponible, mode local activé", e.message);
+      console.warn("⚠️ Firebase non disponible, mode local activé :", e.message);
     }
     return this;
   }
 
+  // ── Local storage ────────────────────────────────────────────
   _loadLocal() {
     try {
       const saved = localStorage.getItem("bbSiteData");
-      if (saved) this._data = this._mergeDeep(JSON.parse(JSON.stringify(DEFAULT_DATA)), JSON.parse(saved));
+      if (saved) this._applyData(JSON.parse(saved));
     } catch (e) { /* ignore */ }
   }
 
@@ -172,21 +205,40 @@ class DataManager {
     try { localStorage.setItem("bbSiteData", JSON.stringify(this._data)); } catch (e) { /* ignore */ }
   }
 
+  // Merge source into this._data IN PLACE so object references stay valid
+  _applyData(source) {
+    const merged = this._mergeDeep(JSON.parse(JSON.stringify(DEFAULT_DATA)), source);
+    // Clear then re-fill the existing object (preserves reference for admin appData)
+    Object.keys(this._data).forEach(k => { delete this._data[k]; });
+    Object.assign(this._data, merged);
+  }
+
+  // ── Firebase ─────────────────────────────────────────────────
   async _syncFromFirebase() {
     return new Promise((resolve) => {
       const docRef = this._db.collection("site").doc("data");
+      let resolved = false;
       this._unsubscribe = docRef.onSnapshot(snap => {
         if (snap.exists) {
-          this._data = this._mergeDeep(JSON.parse(JSON.stringify(DEFAULT_DATA)), snap.data());
-          this._saveLocal();
-          this._notifyAll();
+          const incoming    = snap.data();
+          const incomingTs  = incoming._savedAt || 0;
+          const currentTs   = this._data._savedAt || 0;
+          // Only overwrite local data if Firestore version is same-age or newer.
+          // This prevents a stale onSnapshot from clobbering fresh admin saves.
+          if (incomingTs >= currentTs) {
+            this._applyData(incoming);
+            this._saveLocal();
+            this._notifyAll();
+          }
         }
-        resolve();
-      }, (err) => { console.warn("Firestore sync error:", err); resolve(); });
+        if (!resolved) { resolved = true; resolve(); }
+      }, (err) => { console.warn("Firestore sync error:", err); if (!resolved) { resolved = true; resolve(); } });
     });
   }
 
+  // ── Save ─────────────────────────────────────────────────────
   async save() {
+    this._data._savedAt = Date.now(); // timestamp used for conflict resolution
     this._saveLocal();
     this._notifyAll();
     if (this._firebaseReady && this._db) {
@@ -196,6 +248,7 @@ class DataManager {
     }
   }
 
+  // ── Accessors ────────────────────────────────────────────────
   get(path) {
     return path.split(".").reduce((obj, k) => obj && obj[k] !== undefined ? obj[k] : undefined, this._data);
   }

@@ -46,9 +46,17 @@ if (sessionStorage.getItem("scc_admin_auth") !== "1") {
 async function initAdmin() {
   // Initialise DataManager — charge localStorage puis tente Firebase
   await dataManager.init();
-  appData = dataManager._data;           // référence partagée
+  appData = dataManager._data; // référence partagée (objet in-place via _applyData)
   firebaseReady = dataManager._firebaseReady;
   db = dataManager._db;
+
+  // Quand Firestore met à jour _data depuis un autre onglet/appareil,
+  // _applyData() le fait in-place → appData reste valide automatiquement.
+  // On écoute quand même pour rafraîchir l'UI admin si besoin.
+  dataManager.on("all", () => {
+    appData = dataManager._data;
+    // Ne pas re-render — l'admin est source de vérité, pas récepteur
+  });
 
   const _sb = document.getElementById("syncBadge");
   if (_sb) {
@@ -101,12 +109,16 @@ function saveLocal() {
 
 async function saveData() {
   try {
-    dataManager._data = appData; // garantit la synchronisation (même référence normalement)
-    await dataManager.save();    // localStorage + Firestore si connecté
-    toast(firebaseReady ? "☁️ Synchronisé avec Firebase" : "💾 Sauvegardé localement", "success");
+    // _applyData() merge in-place — préserve la référence partagée entre appData et dataManager._data
+    dataManager._applyData(appData);
+    await dataManager.save(); // localStorage + Firestore si connecté
+    // Après save(), _data a un _savedAt — garder appData sur le même objet
+    appData = dataManager._data;
+    toast(firebaseReady ? "☁️ Synchronisé (Firebase)" : "💾 Sauvegardé (local)", "success");
   } catch(e) {
-    saveLocal(); // fallback local pur
-    toast("⚠️ Sauvegarde locale uniquement", "warning");
+    // Fallback absolu : localStorage direct
+    try { localStorage.setItem("bbSiteData", JSON.stringify(appData)); } catch(_) {}
+    toast("⚠️ Sauvegarde locale uniquement — Firebase indisponible", "warning");
     console.error("saveData error:", e);
   }
 }
