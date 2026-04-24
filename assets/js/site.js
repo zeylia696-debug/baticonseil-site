@@ -470,8 +470,9 @@ class SiteRenderer {
       localStorage.setItem("bbMessages", JSON.stringify(saved));
 
       // Also save to Firestore if available (persistent cross-device)
+      // Use msgWithUid so _uid is stored in Firestore for admin cross-reference
       if (this.dm.isFirebaseReady() && this.dm._db) {
-        await this.dm._db.collection("messages").add(msg);
+        await this.dm._db.collection("messages").add(msgWithUid);
       }
 
       ok.style.display = "block";

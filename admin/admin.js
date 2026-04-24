@@ -319,17 +319,18 @@ function goTo(sec) {
   document.querySelector(`[data-section="${sec}"]`)?.click();
 }
 
-function loadRecentMessages() {
+async function loadRecentMessages() {
   const el = document.getElementById("recentMessages");
   if (!el) return;
   el.innerHTML = `<div class="section-header-bar" style="margin-top:24px"><div><h2>Messages récents</h2></div><button class="btn btn-ghost btn-sm" onclick="goTo('messages')">Voir tout →</button></div>`;
-  const msgs = _getLocalMsgs().slice(0, 3);
+  const all = await _getAllMsgs();
+  const msgs = all.slice(0, 3);
   if (!msgs.length) { el.innerHTML += `<p style="color:var(--text-m);font-size:0.85rem">Aucun message reçu.</p>`; return; }
   msgs.forEach(m => el.innerHTML += renderMsgCard(m, false));
 }
 
 // ============================================================
-// MESSAGES (localStorage)
+// MESSAGES — Firestore primary, localStorage fallback
 // ============================================================
 function _getLocalMsgs() {
   try { return JSON.parse(localStorage.getItem("bbMessages") || "[]").sort((a,b) => new Date(b.date) - new Date(a.date)); }
@@ -340,7 +341,6 @@ function _saveLocalMsgs(msgs) {
 }
 
 function _ensureMsgUids() {
-  // Backfill _uid for older messages that don't have one
   const all = JSON.parse(localStorage.getItem("bbMessages") || "[]");
   let changed = false;
   all.forEach(m => { if (!m._uid) { m._uid = `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`; changed = true; } });
@@ -348,10 +348,48 @@ function _ensureMsgUids() {
   return all;
 }
 
-function renderMessages() {
+// Cache: holds last fetched messages with _firestoreId for mark/delete ops
+let _cachedMsgs = null;
+
+async function _getFirestoreMsgs() {
+  if (!dataManager.isFirebaseReady() || !dataManager._db) return null;
+  try {
+    const snap = await dataManager._db.collection("messages").get();
+    return snap.docs.map(doc => {
+      const d = doc.data();
+      return { ...d, _firestoreId: doc.id, _uid: d._uid || doc.id };
+    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+  } catch(e) {
+    console.warn("Firestore messages fetch:", e.message);
+    return null;
+  }
+}
+
+// Returns merged message list (Firestore + any local-only, deduped by _uid)
+async function _getAllMsgs() {
+  const fsMsgs = await _getFirestoreMsgs();
+  if (fsMsgs !== null) {
+    // Merge: add local messages that aren't in Firestore yet (e.g. Firebase was down during submit)
+    const localMsgs = _ensureMsgUids();
+    const fsUids = new Set(fsMsgs.map(m => m._uid));
+    const localOnly = localMsgs.filter(m => !fsUids.has(m._uid));
+    const merged = [...fsMsgs, ...localOnly].sort((a,b) => new Date(b.date) - new Date(a.date));
+    _cachedMsgs = merged;
+    return merged;
+  }
+  // Fallback: localStorage only
+  const local = _ensureMsgUids();
+  _cachedMsgs = local;
+  return local;
+}
+
+async function renderMessages() {
   const el = document.getElementById("messagesList");
   if (!el) return;
-  const allMsgs = _ensureMsgUids().sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--text-m)">⏳ Chargement des messages…</div>`;
+
+  const allMsgs = await _getAllMsgs();
 
   // Filters
   const catFilter    = document.getElementById("msgCategoryFilter")?.value || "";
@@ -380,7 +418,7 @@ function renderMessages() {
     el.innerHTML = msgs.map(m => renderMsgCard(m, true)).join("");
   }
 
-  // Nav badge — unread count (all messages, not filtered)
+  // Nav badge — unread count
   const unread = allMsgs.filter(m => !m.read).length;
   const badge = document.getElementById("msgBadge");
   if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
@@ -389,12 +427,12 @@ function renderMessages() {
 function renderMsgCard(msg, showDelete = false) {
   const date = msg.date ? new Date(msg.date).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
   const safeUid     = escHtml(msg._uid || "");
-  const firstName   = escHtml(msg.firstName);
-  const lastName    = escHtml(msg.lastName);
-  const email       = escHtml(msg.email);
+  const firstName   = escHtml(msg.firstName || "");
+  const lastName    = escHtml(msg.lastName || "");
+  const email       = escHtml(msg.email || "");
   const subject     = escHtml(msg.subject) || "Sans objet";
   const phone       = msg.phone ? ` · 📞 ${escHtml(msg.phone)}` : "";
-  const body        = escHtml(msg.message).replace(/\n/g, "<br>");
+  const body        = escHtml(msg.message || "").replace(/\n/g, "<br>");
   return `
     <div class="message-card${msg.read ? "" : " unread"}">
       <div class="message-header">
@@ -410,19 +448,52 @@ function renderMsgCard(msg, showDelete = false) {
     </div>`;
 }
 
-function markMsgRead(uid) {
+async function markMsgRead(uid) {
+  // Update localStorage
   const all = _ensureMsgUids();
   const m = all.find(x => x._uid === uid);
   if (m) m.read = true;
   _saveLocalMsgs(all);
+
+  // Update Firestore
+  if (dataManager.isFirebaseReady() && dataManager._db) {
+    const cached = (_cachedMsgs || []).find(x => x._uid === uid);
+    try {
+      if (cached?._firestoreId) {
+        await dataManager._db.collection("messages").doc(cached._firestoreId).update({ read: true });
+      } else {
+        // Fallback: query by _uid field
+        const snap = await dataManager._db.collection("messages").where("_uid", "==", uid).get();
+        await Promise.all(snap.docs.map(d => d.ref.update({ read: true })));
+      }
+    } catch(e) { console.warn("Firestore markRead:", e.message); }
+  }
+
   renderMessages();
 }
-function deleteMsg(uid) {
+
+async function deleteMsg(uid) {
   if (!confirm("Supprimer ce message définitivement ?")) return;
+
+  // Delete from localStorage
   const all = _ensureMsgUids();
   const idx = all.findIndex(x => x._uid === uid);
   if (idx >= 0) all.splice(idx, 1);
   _saveLocalMsgs(all);
+
+  // Delete from Firestore
+  if (dataManager.isFirebaseReady() && dataManager._db) {
+    const cached = (_cachedMsgs || []).find(x => x._uid === uid);
+    try {
+      if (cached?._firestoreId) {
+        await dataManager._db.collection("messages").doc(cached._firestoreId).delete();
+      } else {
+        const snap = await dataManager._db.collection("messages").where("_uid", "==", uid).get();
+        await Promise.all(snap.docs.map(d => d.ref.delete()));
+      }
+    } catch(e) { console.warn("Firestore deleteMsg:", e.message); }
+  }
+
   renderMessages();
   toast("Message supprimé");
 }

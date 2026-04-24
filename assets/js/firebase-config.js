@@ -40,8 +40,8 @@ service cloud.firestore {
       allow write: if request.auth != null;  // auth anonyme suffit
     }
     match /messages/{msg} {
-      allow create: if true;
-      allow read: if request.auth != null;
+      allow create: if true;                            // anyone can submit contact form
+      allow read, update, delete: if request.auth != null;  // admin only (anon auth)
     }
   }
 }
