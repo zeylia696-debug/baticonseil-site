@@ -1,6 +1,5 @@
 // ============================================================
-// CONFIGURATION FIREBASE
-// Remplacez les valeurs ci-dessous par celles de votre projet
+// CONFIGURATION FIREBASE PRINCIPALE
 // ============================================================
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDfpL1jyl3B0FZnB8m-BvYst8SyVh5YcKA",
@@ -10,6 +9,43 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "605781891786",
   appId: "1:605781891786:web:116be1aec5d9c682e5f233"
 };
+
+// ============================================================
+// CONFIGURATION FIREBASE SECONDAIRE (backup optionnel)
+// Créez un second projet Firebase → Console → Firestore → Règles :
+//   allow read, write: if true;
+// Puis collez la config ci-dessous. Laissez null pour désactiver.
+// ============================================================
+const FIREBASE_CONFIG_SECONDARY = null;
+/* Exemple — décommentez et remplissez :
+const FIREBASE_CONFIG_SECONDARY = {
+  apiKey: "...",
+  authDomain: "...-backup.firebaseapp.com",
+  projectId: "...-backup",
+  storageBucket: "...-backup.appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+};
+*/
+
+// ============================================================
+// RÈGLES FIRESTORE RECOMMANDÉES (Firebase Console > Firestore > Règles)
+// ============================================================
+/*
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /site/data {
+      allow read: if true;
+      allow write: if request.auth != null;  // auth anonyme suffit
+    }
+    match /messages/{msg} {
+      allow create: if true;
+      allow read: if request.auth != null;
+    }
+  }
+}
+*/
 
 // ============================================================
 // DONNÉES PAR DÉFAUT
@@ -201,8 +237,8 @@ class DataManager {
     this._loadLocal();
     this._notifyAll(); // render at once from localStorage — don't wait for Firebase
 
+    // ── Primary Firebase ───────────────────────────────────────
     try {
-      // Guard against duplicate-app error when page re-initialises
       let app;
       try { app = firebase.initializeApp(FIREBASE_CONFIG); }
       catch (e) {
@@ -210,12 +246,46 @@ class DataManager {
         else { throw e; }
       }
       this._db = app.firestore ? app.firestore() : firebase.firestore();
+
+      // Anonymous auth — only available when admin loads firebase-auth-compat.js
+      if (typeof firebase.auth === "function") {
+        try {
+          await firebase.auth(app).signInAnonymously();
+          console.log("✅ Auth anonyme OK");
+        } catch (authErr) {
+          console.warn("⚠️ Auth anonyme:", authErr.message);
+        }
+      }
+
       await this._syncFromFirebase();
       this._firebaseReady = true;
-      console.log("✅ Firebase connecté");
+      this._firebaseLabel = "primary";
+      console.log("✅ Firebase principal connecté");
     } catch (e) {
-      console.warn("⚠️ Firebase non disponible, mode local activé :", e.message);
+      console.warn("⚠️ Firebase principal:", e.message);
+      this._lastFirebaseError = e.message;
     }
+
+    // ── Secondary Firebase (fallback) ──────────────────────────
+    if (!this._firebaseReady && FIREBASE_CONFIG_SECONDARY) {
+      try {
+        let backupApp;
+        try { backupApp = firebase.initializeApp(FIREBASE_CONFIG_SECONDARY, "scc-backup"); }
+        catch (e) {
+          if (e.code === "app/duplicate-app") { backupApp = firebase.app("scc-backup"); }
+          else { throw e; }
+        }
+        this._db = backupApp.firestore();
+        await this._syncFromFirebase();
+        this._firebaseReady = true;
+        this._firebaseLabel = "backup";
+        console.log("✅ Firebase backup connecté");
+      } catch (e) {
+        console.warn("⚠️ Firebase backup:", e.message);
+        this._lastFirebaseError += " | backup: " + e.message;
+      }
+    }
+
     return this;
   }
 
@@ -270,7 +340,22 @@ class DataManager {
     if (this._firebaseReady && this._db) {
       try {
         await this._db.collection("site").doc("data").set(this._data);
-      } catch (e) { console.error("Erreur sauvegarde Firebase:", e); throw e; }
+        return; // success — done
+      } catch (e) {
+        console.error("Erreur sauvegarde Firebase principal:", e);
+        // Try secondary if configured
+        if (FIREBASE_CONFIG_SECONDARY) {
+          try {
+            const backupApp = firebase.app("scc-backup");
+            await backupApp.firestore().collection("site").doc("data").set(this._data);
+            console.log("✅ Sauvegarde backup réussie");
+            return;
+          } catch (e2) {
+            console.error("Erreur sauvegarde Firebase backup:", e2);
+          }
+        }
+        throw e; // re-throw so admin.js toast shows the error
+      }
     }
   }
 

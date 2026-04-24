@@ -114,11 +114,12 @@ async function saveData() {
     await dataManager.save(); // localStorage + Firestore si connecté
     // Après save(), _data a un _savedAt — garder appData sur le même objet
     appData = dataManager._data;
-    toast(firebaseReady ? "☁️ Synchronisé (Firebase)" : "💾 Sauvegardé (local)", "success");
+    const label = dataManager._firebaseLabel || "";
+    toast(dataManager.isFirebaseReady() ? `☁️ Synchronisé (Firebase${label ? " " + label : ""})` : "💾 Sauvegardé (local)", "success");
   } catch(e) {
     // Fallback absolu : localStorage direct
     try { localStorage.setItem("bbSiteData", JSON.stringify(appData)); } catch(_) {}
-    toast("⚠️ Sauvegarde locale uniquement — Firebase indisponible", "warning");
+    toast(`⚠️ Local uniquement — ${e.code || e.message || "Firebase KO"}`, "warning");
     console.error("saveData error:", e);
   }
 }
