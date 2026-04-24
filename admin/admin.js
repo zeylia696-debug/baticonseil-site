@@ -170,6 +170,8 @@ function bindGlobal() {
 
   // Refresh messages
   document.getElementById("refreshMsgBtn")?.addEventListener("click", renderMessages);
+  document.getElementById("msgCategoryFilter")?.addEventListener("change", renderMessages);
+  document.getElementById("msgStatusFilter")?.addEventListener("change", renderMessages);
 
   // Logout
   document.getElementById("logoutBtn").addEventListener("click", () => {
@@ -305,13 +307,37 @@ function _ensureMsgUids() {
 function renderMessages() {
   const el = document.getElementById("messagesList");
   if (!el) return;
-  const msgs = _ensureMsgUids().sort((a,b) => new Date(b.date) - new Date(a.date));
+  const allMsgs = _ensureMsgUids().sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  // Filters
+  const catFilter    = document.getElementById("msgCategoryFilter")?.value || "";
+  const statusFilter = document.getElementById("msgStatusFilter")?.value || "";
+  const msgs = allMsgs.filter(m => {
+    if (catFilter    && m.subject !== catFilter) return false;
+    if (statusFilter === "unread" &&  m.read)   return false;
+    if (statusFilter === "read"   && !m.read)   return false;
+    return true;
+  });
+
+  // Count badge
+  const countEl = document.getElementById("msgCount");
+  if (countEl) {
+    const unreadTotal = allMsgs.filter(m => !m.read).length;
+    countEl.textContent = msgs.length !== allMsgs.length
+      ? `${msgs.length} message${msgs.length > 1 ? "s" : ""} affiché${msgs.length > 1 ? "s" : ""} sur ${allMsgs.length} — ${unreadTotal} non lu${unreadTotal > 1 ? "s" : ""}`
+      : `${allMsgs.length} message${allMsgs.length > 1 ? "s" : ""} — ${unreadTotal} non lu${unreadTotal > 1 ? "s" : ""}`;
+  }
+
   if (!msgs.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Aucun message</h4><p>Les messages du formulaire de contact apparaîtront ici.</p></div>`;
+    el.innerHTML = allMsgs.length
+      ? `<div class="empty-state"><div class="empty-state-icon">🔍</div><h4>Aucun résultat</h4><p>Aucun message ne correspond à ce filtre.</p></div>`
+      : `<div class="empty-state"><div class="empty-state-icon">📭</div><h4>Aucun message</h4><p>Les messages du formulaire de contact apparaîtront ici.</p></div>`;
   } else {
     el.innerHTML = msgs.map(m => renderMsgCard(m, true)).join("");
   }
-  const unread = msgs.filter(m => !m.read).length;
+
+  // Nav badge — unread count (all messages, not filtered)
+  const unread = allMsgs.filter(m => !m.read).length;
   const badge = document.getElementById("msgBadge");
   if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
 }

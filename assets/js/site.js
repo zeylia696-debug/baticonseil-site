@@ -427,14 +427,20 @@ class SiteRenderer {
     };
 
     try {
+      // Always save to localStorage so admin panel can read messages
+      const msgWithUid = {
+        ...msg,
+        _uid: `msg_${Date.now()}_${Math.random().toString(36).slice(2,6)}`
+      };
+      const saved = JSON.parse(localStorage.getItem("bbMessages") || "[]");
+      saved.push(msgWithUid);
+      localStorage.setItem("bbMessages", JSON.stringify(saved));
+
+      // Also save to Firestore if available (persistent cross-device)
       if (this.dm.isFirebaseReady() && this.dm._db) {
         await this.dm._db.collection("messages").add(msg);
-      } else {
-        // Fallback: save to localStorage
-        const saved = JSON.parse(localStorage.getItem("bbMessages") || "[]");
-        saved.push(msg);
-        localStorage.setItem("bbMessages", JSON.stringify(saved));
       }
+
       ok.style.display = "block";
       e.target.reset();
     } catch (error) {

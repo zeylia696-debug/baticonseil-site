@@ -108,8 +108,23 @@
       <div id="sec-messages" class="admin-section" style="display:none">
         <div class="section-header-bar">
           <div><h2>Messages reçus</h2><p>Formulaires de contact envoyés par vos visiteurs</p></div>
-          <button class="btn btn-ghost btn-sm" id="refreshMsgBtn">🔄 Actualiser</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="msgCategoryFilter" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;background:#fff;color:var(--text);cursor:pointer">
+              <option value="">Toutes catégories</option>
+              <option value="Prise de rendez-vous">📅 Prise de rendez-vous</option>
+              <option value="Demande de devis">💰 Demande de devis</option>
+              <option value="Question technique">🔧 Question technique</option>
+              <option value="Autre">📩 Autre</option>
+            </select>
+            <select id="msgStatusFilter" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.82rem;background:#fff;color:var(--text);cursor:pointer">
+              <option value="">Tous statuts</option>
+              <option value="unread">Non lus</option>
+              <option value="read">Lus</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="refreshMsgBtn">🔄 Actualiser</button>
+          </div>
         </div>
+        <div id="msgCount" style="font-size:0.8rem;color:var(--text-m);margin-bottom:8px"></div>
         <div id="messagesList"></div>
       </div>
 
