@@ -31,7 +31,8 @@ const EXTENSION_DEFS = [
 if (sessionStorage.getItem("scc_admin_auth") !== "1") {
   window.location.replace("login.html");
 } else {
-  document.getElementById("sidebarUserEmail").textContent = "Administrateur";
+  const _sueEl = document.getElementById("sidebarUserEmail");
+  if (_sueEl) _sueEl.textContent = "Administrateur";
   try {
     initAdmin();
   } catch(e) {
@@ -48,8 +49,8 @@ async function initAdmin() {
   // Local mode — Firebase auth removed, all data in localStorage
   loadLocalData();
   firebaseReady = false;
-  document.getElementById("syncBadge").textContent = "💾 Local";
-  document.getElementById("syncBadge").className = "topbar-badge badge-local";
+  const _sb = document.getElementById("syncBadge");
+  if (_sb) { _sb.textContent = "💾 Local"; _sb.className = "topbar-badge badge-local"; }
 
   renderCurrentSection();
   bindNav();
@@ -174,7 +175,7 @@ function bindGlobal() {
   document.getElementById("msgStatusFilter")?.addEventListener("change", renderMessages);
 
   // Logout
-  document.getElementById("logoutBtn").addEventListener("click", () => {
+  document.getElementById("logoutBtn")?.addEventListener("click", () => {
     if (!confirm("Se déconnecter ?")) return;
     sessionStorage.removeItem("scc_admin_auth");
     window.location.replace("login.html");
@@ -454,6 +455,15 @@ function selectIcon(ic, btn) {
   if (btn) btn.classList.add("selected");
 }
 
+function selectCatIcon(ic, btn) {
+  const inp  = document.getElementById("cf2-icon");
+  const prev = document.getElementById("cf2-icon-preview");
+  if (inp)  inp.value = ic;
+  if (prev) prev.textContent = ic;
+  document.querySelectorAll(".icon-btn").forEach(b => b.classList.remove("selected"));
+  if (btn) btn.classList.add("selected");
+}
+
 function editService(id) {
   const services = appData.services || [];
   const cats = appData.categories || [];
@@ -614,9 +624,10 @@ function renderCategoriesTable() {
 
 function catFormHTML(c = {}) {
   const icons = ["💡","🏗️","🔍","📋","⚡","✅","🏠","⭐","🔧","🌿","🔑","💼","🏛️","📐","🗂️","📊"];
+  const safeName = escHtml(c.name || "");
   return `
     <div class="form-grid">
-      <div class="form-group"><label>Nom <span class="req">*</span></label><input id="cf2-name" type="text" value="${c.name||""}" placeholder="Conseil"></div>
+      <div class="form-group"><label>Nom <span class="req">*</span></label><input id="cf2-name" type="text" value="${safeName}" placeholder="Conseil"></div>
       <div class="form-group"><label>Type</label>
         <select id="cf2-type">
           <option value="service" ${c.type==="service"||!c.type?"selected":""}>Service</option>
@@ -630,7 +641,7 @@ function catFormHTML(c = {}) {
           <span id="cf2-icon-preview" style="font-size:1.8rem">${c.icon||"🏷️"}</span>
           <input id="cf2-icon" type="text" value="${c.icon||"🏷️"}" style="width:80px;text-align:center;font-size:1.2rem">
         </div>
-        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${c.icon===ic?" selected":""}" onclick="document.getElementById('cf2-icon').value='${ic}';document.getElementById('cf2-icon-preview').textContent='${ic}';document.querySelectorAll('.icon-btn').forEach(b=>b.classList.remove('selected'));event.target.classList.add('selected')">${ic}</button>`).join("")}</div>
+        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${c.icon===ic?" selected":""}" onclick="selectCatIcon('${ic}',this)">${ic}</button>`).join("")}</div>
       </div>
     </div>`;
 }
@@ -760,15 +771,20 @@ function renderGallery() {
   const grid = document.getElementById("galleryGrid");
   if (!grid) return;
 
-  grid.innerHTML = gallery.length ? gallery.map(img => `
+  grid.innerHTML = gallery.length ? gallery.map(img => {
+    const safeUrl  = escHtml(img.url  || "");
+    const safeId   = escHtml(img.id   || "");
+    const safeName = escHtml(img.name || "");
+    return `
     <div class="gallery-item">
-      <img src="${img.url}" alt="${img.name||""}" loading="lazy">
+      <img src="${safeUrl}" alt="${safeName}" loading="lazy">
       <div class="gallery-item-overlay">
-        <button class="copy-url-btn" onclick="copyUrl('${img.url}')">📋 Copier URL</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteGalleryImg('${img.id}')" style="background:rgba(239,68,68,0.8);border-color:transparent">🗑</button>
+        <button class="copy-url-btn" onclick="copyUrl('${safeUrl}')">📋 Copier URL</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteGalleryImg('${safeId}')" style="background:rgba(239,68,68,0.8);border-color:transparent">🗑</button>
       </div>
-      <div class="gallery-item-name">${img.name||""}</div>
-    </div>`).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">Aucune image dans la galerie</p>`;
+      <div class="gallery-item-name">${safeName}</div>
+    </div>`;
+  }).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">Aucune image dans la galerie</p>`;
 
 }
 
@@ -829,14 +845,6 @@ function compressAndEncode(file, maxPx = 800, quality = 0.75) {
   });
 }
 
-function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = e => res(e.target.result);
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  });
-}
 
 async function addGalleryUrl() {
   const input = document.getElementById("galleryUrlInput");
@@ -896,7 +904,8 @@ async function saveSettings() {
   s.socialFacebook = document.getElementById("s-facebook")?.value.trim();
   s.socialInstagram= document.getElementById("s-instagram")?.value.trim();
   appData.settings = s;
-  document.getElementById("sidebarLogo").textContent = s.siteName || "SCC";
+  const _logoEl = document.getElementById("sidebarLogo");
+  if (_logoEl) _logoEl.textContent = s.siteName || "SCC";
   await saveData();
 }
 
@@ -1047,8 +1056,10 @@ async function changePwd() {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p1));
     const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
     localStorage.setItem("scc_admin_pwd", hash);
-    document.getElementById("new-pwd").value = "";
-    document.getElementById("new-pwd2").value = "";
+    const _p1el = document.getElementById("new-pwd");
+    const _p2el = document.getElementById("new-pwd2");
+    if (_p1el) _p1el.value = "";
+    if (_p2el) _p2el.value = "";
     toast("Mot de passe mis à jour ✅", "success");
   } catch(e) {
     toast("Erreur lors du changement de mot de passe", "error");
@@ -1091,6 +1102,7 @@ window.editService    = editService;
 window.deleteService  = deleteService;
 window.saveService    = saveService;
 window.selectIcon     = selectIcon;
+window.selectCatIcon  = selectCatIcon;
 window.editArticle    = editArticle;
 window.deleteArticle  = deleteArticle;
 window.saveArticle    = saveArticle;

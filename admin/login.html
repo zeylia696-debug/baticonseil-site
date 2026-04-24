@@ -67,11 +67,22 @@
     }
     function clearLock() { localStorage.removeItem(LOCK_KEY); }
 
-    // Reset lockout if ?reset param present (emergency use)
-    if (new URLSearchParams(location.search).has('reset')) {
-      localStorage.removeItem(LOCK_KEY);
-      localStorage.removeItem(PWD_KEY);
-    }
+    // Reset lockout ONLY if ?reset=<secret> matches expected token
+    // Token: sha256("scc_reset_2024") = pre-computed constant below
+    const RESET_TOKEN = 'b7e23ec29af22b0b4e41da31e868d57226121c84ded46d2520b07d93b8c05836';
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const tok = params.get('reset');
+      if (tok) {
+        const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tok));
+        const hashHex = Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        if (hashHex === RESET_TOKEN) {
+          localStorage.removeItem(LOCK_KEY);
+          localStorage.removeItem(PWD_KEY);
+          history.replaceState(null,'',location.pathname); // strip token from URL
+        }
+      }
+    })();
 
     // Already logged in?
     if (sessionStorage.getItem('scc_admin_auth') === '1') {
