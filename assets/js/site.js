@@ -39,8 +39,20 @@ class SiteRenderer {
     this._renderProcess();
     this._renderAbout(data.settings, data.about);
     this._renderArticles(data.articles);
-    if (data.extensions?.testimonials) this._renderTestimonials(data.testimonials);
-    if (data.extensions?.contact) this._renderContact(data.settings);
+    const testiSection = document.getElementById("testimonials");
+    if (data.extensions?.testimonials !== false) {
+      if (testiSection) testiSection.style.display = "";
+      this._renderTestimonials(data.testimonials);
+    } else {
+      if (testiSection) testiSection.style.display = "none";
+    }
+    const contactSection = document.getElementById("contact");
+    if (data.extensions?.contact !== false) {
+      if (contactSection) contactSection.style.display = "";
+      this._renderContact(data.settings);
+    } else {
+      if (contactSection) contactSection.style.display = "none";
+    }
     this._renderFooter(data.settings, data.services);
     this._initObserver();
   }

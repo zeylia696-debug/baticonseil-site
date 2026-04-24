@@ -60,6 +60,7 @@ async function initAdmin() {
 // DATA LAYER
 // ============================================================
 async function loadData() {
+  if (!db) { loadLocalData(); return; } // admin panel is local-only
   const snap = await db.collection("site").doc("data").get();
   if (snap.exists) {
     appData = snap.data();
@@ -404,7 +405,7 @@ function serviceFormHTML(s = {}, categories = []) {
           <span id="sf-icon-preview" style="font-size:1.8rem">${s.icon||"🔧"}</span>
           <input id="sf-icon" type="text" value="${s.icon||"🔧"}" style="width:80px;text-align:center;font-size:1.2rem" oninput="document.getElementById('sf-icon-preview').textContent=this.value">
         </div>
-        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${s.icon===ic?" selected":""}" onclick="selectIcon('${ic}')">${ic}</button>`).join("")}</div>
+        <div class="icon-grid">${icons.map(ic => `<button type="button" class="icon-btn${s.icon===ic?" selected":""}" onclick="selectIcon('${ic}',this)">${ic}</button>`).join("")}</div>
       </div>
       <div class="form-group">
         <label>Options</label>
@@ -420,11 +421,11 @@ function serviceFormHTML(s = {}, categories = []) {
     </div>`;
 }
 
-function selectIcon(ic) {
+function selectIcon(ic, btn) {
   document.getElementById("sf-icon").value = ic;
   document.getElementById("sf-icon-preview").textContent = ic;
   document.querySelectorAll(".icon-btn").forEach(b => b.classList.remove("selected"));
-  event.target.classList.add("selected");
+  if (btn) btn.classList.add("selected");
 }
 
 function editService(id) {
