@@ -31,30 +31,63 @@ class SiteRenderer {
 
   renderAll() {
     const data = this.dm._data;
+    const ext  = data.extensions || {};
     this._applyTheme(data.colors);
     this._renderNav(data.settings, data.categories, data.services);
     this._renderHero(data.settings, data.hero);
-    this._renderStats(data.stats);
+
+    // Stats (gated)
+    this._toggleSection("stats", ext.stats !== false);
+    if (ext.stats !== false) this._renderStats(data.stats);
+
     this._renderServices(data.services, data.categories);
     this._renderProcess();
     this._renderAbout(data.settings, data.about);
     this._renderArticles(data.articles);
-    const testiSection = document.getElementById("testimonials");
-    if (data.extensions?.testimonials !== false) {
-      if (testiSection) testiSection.style.display = "";
-      this._renderTestimonials(data.testimonials);
-    } else {
-      if (testiSection) testiSection.style.display = "none";
-    }
-    const contactSection = document.getElementById("contact");
-    if (data.extensions?.contact !== false) {
-      if (contactSection) contactSection.style.display = "";
-      this._renderContact(data.settings);
-    } else {
-      if (contactSection) contactSection.style.display = "none";
-    }
+
+    // Gallery
+    this._toggleSection("gallery-section", ext.gallery && (data.gallery||[]).length > 0);
+    if (ext.gallery) this._renderGallerySection(data.gallery);
+
+    // Testimonials
+    this._toggleSection("testimonials", ext.testimonials !== false);
+    if (ext.testimonials !== false) this._renderTestimonials(data.testimonials);
+
+    // Team
+    this._toggleSection("team-section", !!ext.team);
+    if (ext.team) this._renderTeam(data.team);
+
+    // Partners
+    this._toggleSection("partners-section", !!ext.partners);
+    if (ext.partners) this._renderPartners(data.partners);
+
+    // FAQ
+    this._toggleSection("faq-section", !!ext.faq);
+    if (ext.faq) this._renderFaq(data.faq);
+
+    // Newsletter
+    this._toggleSection("newsletter-section", !!ext.newsletter);
+    if (ext.newsletter) this._renderNewsletter(data.settings);
+
+    // Contact
+    this._toggleSection("contact", ext.contact !== false);
+    if (ext.contact !== false) this._renderContact(data.settings);
+
+    // Map
+    const hasMap = ext.map && (data.settings?.mapEmbed || data.settings?.address);
+    this._toggleSection("map-section", hasMap);
+    if (hasMap) this._renderMap(data.settings);
+
+    // Chat widget (floating)
+    this._renderChat(ext, data.settings);
+
     this._renderFooter(data.settings, data.services);
     this._initObserver();
+  }
+
+  _toggleSection(id, show) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? "" : "none";
   }
 
   // ──────────────────────────────────────────────
@@ -449,6 +482,137 @@ class SiteRenderer {
     } finally {
       btn.textContent = "Envoyer le message →"; btn.disabled = false;
     }
+  }
+
+  // ──────────────────────────────────────────────
+  // GALLERY SECTION
+  // ──────────────────────────────────────────────
+  _renderGallerySection(gallery = []) {
+    const el = document.getElementById("gallery-section-grid");
+    if (!el) return;
+    const imgs = (gallery || []).slice(0, 12);
+    if (!imgs.length) { el.innerHTML = ""; return; }
+    el.innerHTML = `<div class="gallery-pub-grid">${imgs.map(img => `
+      <div class="gallery-pub-item fade-up">
+        <img src="${this._esc(img.url)}" alt="${this._esc(img.name||"Photo")}" loading="lazy">
+      </div>`).join("")}</div>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // TEAM
+  // ──────────────────────────────────────────────
+  _renderTeam(team = []) {
+    const el = document.getElementById("team-grid");
+    if (!el) return;
+    const members = (team || []).filter(m => m.name).sort((a,b) => (a.order||99)-(b.order||99));
+    if (!members.length) { el.innerHTML = `<p style="text-align:center;color:var(--text-m)">Aucun membre d'équipe renseigné.</p>`; return; }
+    el.innerHTML = `<div class="team-grid">${members.map(m => {
+      const initials = m.name.split(" ").map(w => w[0]||"").join("").slice(0,2).toUpperCase();
+      const photo = m.photo
+        ? `<img src="${this._esc(m.photo)}" alt="${this._esc(m.name)}" loading="lazy">`
+        : `<div class="team-avatar-initials">${initials}</div>`;
+      return `<div class="team-card fade-up">
+        <div class="team-photo">${photo}</div>
+        <div class="team-info">
+          <div class="team-name">${this._esc(m.name)}</div>
+          <div class="team-role">${this._esc(m.role||"")}</div>
+          ${m.bio ? `<p class="team-bio">${this._esc(m.bio)}</p>` : ""}
+        </div>
+      </div>`;
+    }).join("")}</div>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // PARTNERS
+  // ──────────────────────────────────────────────
+  _renderPartners(partners = []) {
+    const el = document.getElementById("partners-grid");
+    if (!el) return;
+    const active = (partners || []).filter(p => p.name || p.logo);
+    if (!active.length) { el.innerHTML = `<p style="text-align:center;color:var(--text-m)">Aucun partenaire renseigné.</p>`; return; }
+    el.innerHTML = `<div class="partners-grid">${active.map(p => {
+      const inner = p.logo
+        ? `<img src="${this._esc(p.logo)}" alt="${this._esc(p.name||"Partenaire")}" loading="lazy">`
+        : `<span class="partner-name-text">${this._esc(p.name)}</span>`;
+      return p.url
+        ? `<a href="${this._esc(p.url)}" target="_blank" rel="noopener noreferrer" class="partner-item fade-up" title="${this._esc(p.name||"")}">${inner}</a>`
+        : `<div class="partner-item fade-up">${inner}</div>`;
+    }).join("")}</div>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // FAQ
+  // ──────────────────────────────────────────────
+  _renderFaq(faq = []) {
+    const el = document.getElementById("faq-content");
+    if (!el) return;
+    const items = (faq || []).filter(f => f.question).sort((a,b) => (a.order||99)-(b.order||99));
+    if (!items.length) { el.innerHTML = `<p style="text-align:center;color:var(--text-m)">Aucune question renseignée.</p>`; return; }
+    el.innerHTML = `<div class="faq-list">${items.map(f => `
+      <div class="faq-item fade-up">
+        <button class="faq-question" aria-expanded="false"
+          onclick="const ans=this.nextElementSibling;const open=this.getAttribute('aria-expanded')==='true';this.setAttribute('aria-expanded',!open);ans.style.display=open?'none':'block'">
+          <span>${this._esc(f.question)}</span>
+          <svg class="faq-chevron" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="faq-answer" style="display:none"><p>${this._esc(f.answer)}</p></div>
+      </div>`).join("")}</div>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // NEWSLETTER
+  // ──────────────────────────────────────────────
+  _renderNewsletter(settings = {}) {
+    const el = document.getElementById("newsletter-content");
+    if (!el) return;
+    const textBlock = `
+      <div class="newsletter-text">
+        <h2>Restez informé</h2>
+        <p>Recevez nos actualités, conseils et guides pratiques directement dans votre boîte mail.</p>
+      </div>`;
+    if (settings.newsletterUrl) {
+      el.innerHTML = `<div class="newsletter-wrap fade-up">${textBlock}
+        <iframe src="${this._esc(settings.newsletterUrl)}" width="100%" height="280" frameborder="0" style="border:none;border-radius:var(--radius-sm);flex:1;max-width:420px"></iframe>
+      </div>`;
+    } else {
+      el.innerHTML = `<div class="newsletter-wrap fade-up">${textBlock}
+        <form class="newsletter-form" onsubmit="event.preventDefault();const i=this.querySelector('input');if(i&&i.value){this.innerHTML='<p style=\\'color:#fff;font-size:1.05rem;font-weight:600\\'>✅ Merci ! Nous vous contacterons bientôt.</p>'}">
+          <input type="email" placeholder="Votre adresse email" required autocomplete="email">
+          <button type="submit" class="btn btn-primary">S'inscrire →</button>
+        </form>
+      </div>`;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // MAP
+  // ──────────────────────────────────────────────
+  _renderMap(settings = {}) {
+    const el = document.getElementById("map-content");
+    if (!el) return;
+    if (settings.mapEmbed) {
+      el.innerHTML = `<iframe src="${this._esc(settings.mapEmbed)}" width="100%" height="420" frameborder="0" style="border:none;display:block" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Localisation"></iframe>`;
+    } else if (settings.address) {
+      const q = encodeURIComponent(settings.address);
+      el.innerHTML = `<iframe src="https://maps.google.com/maps?q=${q}&output=embed" width="100%" height="420" frameborder="0" style="border:none;display:block" allowfullscreen loading="lazy" title="Localisation — ${this._esc(settings.address)}"></iframe>`;
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // CHAT WIDGET
+  // ──────────────────────────────────────────────
+  _renderChat(ext = {}, settings = {}) {
+    document.getElementById("chat-widget")?.remove();
+    if (!ext.chat) return;
+    const target = settings.chatUrl || "#contact";
+    const isExt  = settings.chatUrl?.startsWith("http");
+    const btn = document.createElement("a");
+    btn.id   = "chat-widget";
+    btn.href = target;
+    btn.setAttribute("aria-label", "Démarrer une conversation");
+    if (isExt) { btn.target = "_blank"; btn.rel = "noopener noreferrer"; }
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+    document.body.appendChild(btn);
   }
 
   // ──────────────────────────────────────────────

@@ -188,7 +188,10 @@ function renderCurrentSection() {
     hero:         renderHero,
     colors:       renderColors,
     stats:        renderStatsSection,
-    extensions:   renderExtensions
+    extensions:   renderExtensions,
+    faq:          renderFaqTable,
+    team:         renderTeamTable,
+    partners:     renderPartnersTable
   };
   renders[currentSection]?.();
 }
@@ -225,6 +228,9 @@ function bindGlobal() {
   document.getElementById("addArticleBtn")?.addEventListener("click", () => editArticle(null));
   document.getElementById("addCatBtn")?.addEventListener("click",     () => editCategory(null));
   document.getElementById("addTestiBtn")?.addEventListener("click",   () => editTestimonial(null));
+  document.getElementById("addFaqBtn")?.addEventListener("click",     () => editFaq(null));
+  document.getElementById("addTeamBtn")?.addEventListener("click",    () => editTeam(null));
+  document.getElementById("addPartnerBtn")?.addEventListener("click", () => editPartner(null));
   document.getElementById("saveSettingsBtn")?.addEventListener("click", saveSettings);
   document.getElementById("saveHeroBtn")?.addEventListener("click",   saveHero);
   document.getElementById("saveColorsBtn")?.addEventListener("click", saveColors);
@@ -967,7 +973,8 @@ function renderSettings() {
   const fields = { "s-name": s.siteName, "s-tagline": s.tagline, "s-desc": s.description,
     "s-phone": s.phone, "s-email": s.email, "s-address": s.address,
     "s-logo": s.logo, "s-footer": s.footerText,
-    "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram };
+    "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram,
+    "s-mapembed": s.mapEmbed, "s-chaturl": s.chatUrl, "s-newsletterurl": s.newsletterUrl };
   Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
   // Aperçu logo
   const logoInp = document.getElementById("s-logo");
@@ -985,9 +992,12 @@ async function saveSettings() {
   s.address       = document.getElementById("s-address")?.value.trim();
   s.logo          = document.getElementById("s-logo")?.value.trim();
   s.footerText    = document.getElementById("s-footer")?.value.trim();
-  s.socialLinkedIn = document.getElementById("s-linkedin")?.value.trim();
-  s.socialFacebook = document.getElementById("s-facebook")?.value.trim();
-  s.socialInstagram= document.getElementById("s-instagram")?.value.trim();
+  s.socialLinkedIn  = document.getElementById("s-linkedin")?.value.trim();
+  s.socialFacebook  = document.getElementById("s-facebook")?.value.trim();
+  s.socialInstagram = document.getElementById("s-instagram")?.value.trim();
+  s.mapEmbed        = document.getElementById("s-mapembed")?.value.trim();
+  s.chatUrl         = document.getElementById("s-chaturl")?.value.trim();
+  s.newsletterUrl   = document.getElementById("s-newsletterurl")?.value.trim();
   appData.settings = s;
   const _logoEl = document.getElementById("sidebarLogo");
   if (_logoEl) _logoEl.textContent = s.siteName || "SCC";
@@ -1187,6 +1197,169 @@ async function toggleExtension(key, value) {
 }
 
 // ============================================================
+// FAQ
+// ============================================================
+function renderFaqTable() {
+  const tbody = document.getElementById("faqTable");
+  if (!tbody) return;
+  const faqs = (appData.faq || []).sort((a,b) => (a.order||99)-(b.order||99));
+  tbody.innerHTML = faqs.length ? faqs.map(f => `
+    <tr>
+      <td style="width:60px;text-align:center;color:var(--text-m);font-size:0.82rem">${f.order||"—"}</td>
+      <td>
+        <div class="td-title">${escHtml(f.question)}</div>
+        <div class="td-sub" style="white-space:normal">${escHtml((f.answer||"").slice(0,80))}…</div>
+      </td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editFaq('${f.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteFaq('${f.id}')" title="Supprimer">🗑</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="3" style="text-align:center;padding:32px;color:var(--text-m)">Aucune question — cliquez "+ Ajouter"</td></tr>`;
+}
+
+function editFaq(id) {
+  const f = id ? (appData.faq||[]).find(x => x.id === id) : {};
+  openModal(id ? "Modifier la question" : "Nouvelle question", `
+    <div class="form-grid cols-1">
+      <div class="form-group"><label>Question <span class="req">*</span></label><input id="fq-q" type="text" value="${escHtml(f?.question||"")}" placeholder="Comment se déroule…"></div>
+      <div class="form-group"><label>Réponse <span class="req">*</span></label><textarea id="fq-a" rows="4" placeholder="La réponse détaillée…">${escHtml(f?.answer||"")}</textarea></div>
+      <div class="form-group"><label>Ordre d'affichage</label><input id="fq-order" type="number" value="${f?.order||1}" min="1"></div>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveFaq('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveFaq(id) {
+  const q = document.getElementById("fq-q")?.value.trim();
+  if (!q) { toast("La question est requise", "error"); return; }
+  const item = { id: id||uid("faq"), question: q, answer: document.getElementById("fq-a")?.value.trim()||"", order: parseInt(document.getElementById("fq-order")?.value)||1 };
+  if (!appData.faq) appData.faq = [];
+  const i = appData.faq.findIndex(x => x.id === id);
+  if (i >= 0) appData.faq[i] = item; else appData.faq.push(item);
+  closeModal(); await saveData(); renderFaqTable();
+}
+
+async function deleteFaq(id) {
+  if (!confirm("Supprimer cette question ?")) return;
+  appData.faq = (appData.faq||[]).filter(x => x.id !== id);
+  await saveData(); renderFaqTable(); toast("Question supprimée");
+}
+
+// ============================================================
+// TEAM
+// ============================================================
+function renderTeamTable() {
+  const tbody = document.getElementById("teamTable");
+  if (!tbody) return;
+  const members = (appData.team || []).sort((a,b) => (a.order||99)-(b.order||99));
+  tbody.innerHTML = members.length ? members.map(m => `
+    <tr>
+      <td style="width:52px">${m.photo ? `<img src="${escHtml(m.photo)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">` : `<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem">${escHtml((m.name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase())}</div>`}</td>
+      <td><div class="td-title">${escHtml(m.name)}</div></td>
+      <td><span class="badge badge-info">${escHtml(m.role||"—")}</span></td>
+      <td style="width:60px;text-align:center;color:var(--text-m);font-size:0.82rem">${m.order||"—"}</td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editTeam('${m.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteTeam('${m.id}')" title="Supprimer">🗑</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-m)">Aucun membre — cliquez "+ Ajouter"</td></tr>`;
+}
+
+function editTeam(id) {
+  const m = id ? (appData.team||[]).find(x => x.id === id) : {};
+  openModal(id ? "Modifier le membre" : "Nouveau membre", `
+    <div class="form-grid">
+      <div class="form-group span-2"><label>Nom <span class="req">*</span></label><input id="tm-name" type="text" value="${escHtml(m?.name||"")}" placeholder="Jean Dupont"></div>
+      <div class="form-group span-2"><label>Rôle / Titre</label><input id="tm-role" type="text" value="${escHtml(m?.role||"")}" placeholder="Architecte DPLG"></div>
+      <div class="form-group span-2"><label>Biographie courte</label><textarea id="tm-bio" rows="3" placeholder="Quelques mots sur l'expertise…">${escHtml(m?.bio||"")}</textarea></div>
+      <div class="form-group span-2">
+        <label>Photo</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="tm-photo" type="url" value="${escHtml(m?.photo||"")}" placeholder="https://… ou cliquez Upload" style="flex:1" oninput="(function(v){var p=document.getElementById('tm-photo-preview');if(p){p.src=v;p.style.display=v?'block':'none'}})(this.value)">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="pickImage('tm-photo',400,0.85)" style="white-space:nowrap">📁 Upload</button>
+        </div>
+        <img id="tm-photo-preview" src="${escHtml(m?.photo||"")}" style="${m?.photo?"":"display:none;"}margin-top:8px;width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">
+      </div>
+      <div class="form-group"><label>Ordre d'affichage</label><input id="tm-order" type="number" value="${m?.order||1}" min="1"></div>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveTeam('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function saveTeam(id) {
+  const name = document.getElementById("tm-name")?.value.trim();
+  if (!name) { toast("Le nom est requis", "error"); return; }
+  const item = { id: id||uid("tm"), name, role: document.getElementById("tm-role")?.value.trim()||"", bio: document.getElementById("tm-bio")?.value.trim()||"", photo: document.getElementById("tm-photo")?.value.trim()||"", order: parseInt(document.getElementById("tm-order")?.value)||1 };
+  if (!appData.team) appData.team = [];
+  const i = appData.team.findIndex(x => x.id === id);
+  if (i >= 0) appData.team[i] = item; else appData.team.push(item);
+  closeModal(); await saveData(); renderTeamTable();
+}
+
+async function deleteTeam(id) {
+  if (!confirm("Supprimer ce membre ?")) return;
+  appData.team = (appData.team||[]).filter(x => x.id !== id);
+  await saveData(); renderTeamTable(); toast("Membre supprimé");
+}
+
+// ============================================================
+// PARTNERS
+// ============================================================
+function renderPartnersTable() {
+  const tbody = document.getElementById("partnersTable");
+  if (!tbody) return;
+  const partners = appData.partners || [];
+  tbody.innerHTML = partners.length ? partners.map(p => `
+    <tr>
+      <td style="width:80px">${p.logo ? `<img src="${escHtml(p.logo)}" style="max-height:40px;max-width:72px;object-fit:contain;border-radius:4px">` : `<span style="color:var(--text-m);font-size:0.78rem">Aucun logo</span>`}</td>
+      <td><div class="td-title">${escHtml(p.name||"—")}</div></td>
+      <td><a href="${escHtml(p.url||"#")}" target="_blank" rel="noopener" style="color:var(--primary);font-size:0.82rem;word-break:break-all">${escHtml(p.url||"—")}</a></td>
+      <td class="td-actions">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editPartner('${p.id}')" title="Modifier">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deletePartner('${p.id}')" title="Supprimer">🗑</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-m)">Aucun partenaire — cliquez "+ Ajouter"</td></tr>`;
+}
+
+function editPartner(id) {
+  const p = id ? (appData.partners||[]).find(x => x.id === id) : {};
+  openModal(id ? "Modifier le partenaire" : "Nouveau partenaire", `
+    <div class="form-grid cols-1">
+      <div class="form-group"><label>Nom <span class="req">*</span></label><input id="pt-name" type="text" value="${escHtml(p?.name||"")}" placeholder="RGE Qualibat"></div>
+      <div class="form-group">
+        <label>Logo</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pt-logo" type="url" value="${escHtml(p?.logo||"")}" placeholder="https://… ou cliquez Upload" style="flex:1" oninput="(function(v){var prev=document.getElementById('pt-logo-preview');if(prev){prev.src=v;prev.style.display=v?'block':'none'}})(this.value)">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="pickImage('pt-logo',300,0.88)" style="white-space:nowrap">📁 Upload</button>
+        </div>
+        <img id="pt-logo-preview" src="${escHtml(p?.logo||"")}" style="${p?.logo?"":"display:none;"}margin-top:8px;max-height:48px;max-width:120px;object-fit:contain;border-radius:4px;border:1px solid var(--border)">
+      </div>
+      <div class="form-group"><label>URL (lien cliquable)</label><input id="pt-url" type="url" value="${escHtml(p?.url||"")}" placeholder="https://www.qualibat.com"></div>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="savePartner('${id||""}')">💾 Sauvegarder</button>`
+  );
+}
+
+async function savePartner(id) {
+  const name = document.getElementById("pt-name")?.value.trim();
+  if (!name) { toast("Le nom est requis", "error"); return; }
+  const item = { id: id||uid("pt"), name, logo: document.getElementById("pt-logo")?.value.trim()||"", url: document.getElementById("pt-url")?.value.trim()||"" };
+  if (!appData.partners) appData.partners = [];
+  const i = appData.partners.findIndex(x => x.id === id);
+  if (i >= 0) appData.partners[i] = item; else appData.partners.push(item);
+  closeModal(); await saveData(); renderPartnersTable();
+}
+
+async function deletePartner(id) {
+  if (!confirm("Supprimer ce partenaire ?")) return;
+  appData.partners = (appData.partners||[]).filter(x => x.id !== id);
+  await saveData(); renderPartnersTable(); toast("Partenaire supprimé");
+}
+
+// ============================================================
 // EXPORT — expose to HTML onclick handlers
 // ============================================================
 window.editService    = editService;
@@ -1195,6 +1368,15 @@ window.saveService    = saveService;
 window.selectIcon     = selectIcon;
 window.selectCatIcon  = selectCatIcon;
 window.pickImage      = pickImage;
+window.editFaq        = editFaq;
+window.deleteFaq      = deleteFaq;
+window.saveFaq        = saveFaq;
+window.editTeam       = editTeam;
+window.deleteTeam     = deleteTeam;
+window.saveTeam       = saveTeam;
+window.editPartner    = editPartner;
+window.deletePartner  = deletePartner;
+window.savePartner    = savePartner;
 window.editArticle    = editArticle;
 window.deleteArticle  = deleteArticle;
 window.saveArticle    = saveArticle;

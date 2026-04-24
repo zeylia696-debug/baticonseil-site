@@ -61,6 +61,9 @@
       <div class="nav-item" role="button" tabindex="0" data-section="categories"><span class="nav-icon">🏷️</span> Catégories</div>
       <div class="nav-item" role="button" tabindex="0" data-section="testimonials"><span class="nav-icon">⭐</span> Témoignages</div>
       <div class="nav-item" role="button" tabindex="0" data-section="gallery"><span class="nav-icon">🖼️</span> Galerie</div>
+      <div class="nav-item" role="button" tabindex="0" data-section="faq"><span class="nav-icon">❓</span> FAQ</div>
+      <div class="nav-item" role="button" tabindex="0" data-section="team"><span class="nav-icon">👥</span> Équipe</div>
+      <div class="nav-item" role="button" tabindex="0" data-section="partners"><span class="nav-icon">🤝</span> Partenaires</div>
 
       <div class="nav-section">Configuration</div>
       <div class="nav-item" role="button" tabindex="0" data-section="settings"><span class="nav-icon">⚙️</span> Informations</div>
@@ -233,6 +236,21 @@
             <div class="form-group"><label>LinkedIn</label><input id="s-linkedin" type="url" placeholder="https://linkedin.com/company/…"></div>
             <div class="form-group"><label>Facebook</label><input id="s-facebook" type="url" placeholder="https://facebook.com/…"></div>
             <div class="form-group"><label>Instagram</label><input id="s-instagram" type="url" placeholder="https://instagram.com/…"></div>
+            <div class="form-group span-2" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+              <label>🗺️ Google Maps — URL d'intégration</label>
+              <input id="s-mapembed" type="url" placeholder="https://www.google.com/maps/embed?pb=…">
+              <div class="form-hint">Extensions › Carte Google Maps doit être activée. Copiez l'URL depuis Google Maps › Partager › Intégrer.</div>
+            </div>
+            <div class="form-group">
+              <label>💬 URL du chat (Tawk.to / Crisp)</label>
+              <input id="s-chaturl" type="url" placeholder="https://tawk.to/… ou https://app.crisp.chat/…">
+              <div class="form-hint">Extensions › Widget de chat doit être activé.</div>
+            </div>
+            <div class="form-group">
+              <label>📧 URL newsletter (Mailchimp embed)</label>
+              <input id="s-newsletterurl" type="url" placeholder="https://us1.list-manage.com/…">
+              <div class="form-hint">Extensions › Newsletter doit être activée.</div>
+            </div>
           </div>
         </div>
 
@@ -375,6 +393,45 @@
           <button class="btn btn-primary" id="saveExtBtn">💾 Sauvegarder</button>
         </div>
         <div class="extensions-grid" id="extensionsGrid"></div>
+      </div>
+
+      <!-- ── FAQ ──────────────────────────────────── -->
+      <div id="sec-faq" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>FAQ</h2><p>Questions fréquentes affichées sur le site (activer dans Extensions)</p></div>
+          <button class="btn btn-primary" id="addFaqBtn">+ Ajouter une question</button>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Ordre</th><th>Question</th><th>Actions</th>
+          </tr></thead><tbody id="faqTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── TEAM ─────────────────────────────────── -->
+      <div id="sec-team" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Équipe</h2><p>Membres affichés dans la section équipe (activer dans Extensions)</p></div>
+          <button class="btn btn-primary" id="addTeamBtn">+ Ajouter un membre</button>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Photo</th><th>Nom</th><th>Rôle</th><th>Ordre</th><th>Actions</th>
+          </tr></thead><tbody id="teamTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── PARTNERS ──────────────────────────────── -->
+      <div id="sec-partners" class="admin-section" style="display:none">
+        <div class="section-header-bar">
+          <div><h2>Partenaires & certifications</h2><p>Logos affichés dans la section partenaires (activer dans Extensions)</p></div>
+          <button class="btn btn-primary" id="addPartnerBtn">+ Ajouter un partenaire</button>
+        </div>
+        <div class="table-card">
+          <table><thead><tr>
+            <th>Logo</th><th>Nom</th><th>URL</th><th>Actions</th>
+          </tr></thead><tbody id="partnersTable"></tbody></table>
+        </div>
       </div>
 
     </div><!-- /admin-content -->

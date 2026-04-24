@@ -27,7 +27,10 @@ const DEFAULT_DATA = {
     footerText: "© 2024 Synergie Conseils Constructions. Tous droits réservés.",
     socialLinkedIn: "",
     socialFacebook: "",
-    socialInstagram: ""
+    socialInstagram: "",
+    mapEmbed: "",
+    chatUrl: "",
+    newsletterUrl: ""
   },
   colors: {
     primary: "#1E3A2F",
@@ -129,10 +132,33 @@ const DEFAULT_DATA = {
   extensions: {
     testimonials: true,
     contact: true,
+    gallery: false,
+    stats: true,
     map: false,
-    chat: false
+    chat: false,
+    newsletter: false,
+    faq: false,
+    team: false,
+    partners: false
   },
-  gallery: []
+  gallery: [],
+  faq: [
+    { id: "faq1", question: "Comment se déroule un premier rendez-vous ?", answer: "Le premier rendez-vous est une consultation d'une heure pour analyser votre projet, définir vos besoins et vous proposer un accompagnement adapté. Il est sans engagement.", order: 1 },
+    { id: "faq2", question: "Quels types de projets accompagnez-vous ?", answer: "Nous accompagnons tous types de projets : construction neuve, rénovation, extension, surélévation, expertise technique, permis de construire et audit énergétique.", order: 2 },
+    { id: "faq3", question: "Intervenez-vous partout en France ?", answer: "Nous intervenons principalement en Auvergne-Rhône-Alpes mais acceptons des missions sur tout le territoire national selon la nature du projet.", order: 3 },
+    { id: "faq4", question: "Quels sont vos honoraires ?", answer: "Nos honoraires sont calculés en fonction de la nature et du volume du projet. Nous vous fournissons un devis détaillé et transparent lors de notre premier échange.", order: 4 }
+  ],
+  team: [
+    { id: "tm1", name: "Jean-Marie Bernard", role: "Directeur & Expert en construction", bio: "Plus de 20 ans d'expérience dans le BTP, expert reconnu en maîtrise d'œuvre et expertise technique.", photo: "", order: 1 },
+    { id: "tm2", name: "Sophie Leclerc", role: "Architecte DPLG", bio: "Spécialiste en rénovation et patrimoine, elle pilote les projets complexes avec rigueur et créativité.", photo: "", order: 2 },
+    { id: "tm3", name: "Marc Durand", role: "Ingénieur structure", bio: "Expert en calcul de structure et diagnostic pathologique, il sécurise chaque phase technique du projet.", photo: "", order: 3 }
+  ],
+  partners: [
+    { id: "pt1", name: "RGE Qualibat", logo: "", url: "https://www.qualibat.com" },
+    { id: "pt2", name: "OPPBTP", logo: "", url: "https://www.oppbtp.fr" },
+    { id: "pt3", name: "UNSFA", logo: "", url: "https://www.unsfa.com" },
+    { id: "pt4", name: "FNTP", logo: "", url: "https://www.fntp.fr" }
+  ]
 };
 
 // ============================================================
