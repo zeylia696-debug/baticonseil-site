@@ -33,24 +33,33 @@ if (sessionStorage.getItem("scc_admin_auth") !== "1") {
 } else {
   const _sueEl = document.getElementById("sidebarUserEmail");
   if (_sueEl) _sueEl.textContent = "Administrateur";
-  try {
-    initAdmin();
-  } catch(e) {
+  initAdmin().catch(e => {
     var p = document.getElementById("diagPanel");
     if (p) { p.style.display = "block"; p.textContent = "❌ initAdmin() crash: " + e.message + "\n" + e.stack; }
     console.error("initAdmin crash:", e);
-  }
+  });
 }
 
 // ============================================================
 // INIT
 // ============================================================
 async function initAdmin() {
-  // Local mode — Firebase auth removed, all data in localStorage
-  loadLocalData();
-  firebaseReady = false;
+  // Initialise DataManager — charge localStorage puis tente Firebase
+  await dataManager.init();
+  appData = dataManager._data;           // référence partagée
+  firebaseReady = dataManager._firebaseReady;
+  db = dataManager._db;
+
   const _sb = document.getElementById("syncBadge");
-  if (_sb) { _sb.textContent = "💾 Local"; _sb.className = "topbar-badge badge-local"; }
+  if (_sb) {
+    if (firebaseReady) {
+      _sb.textContent = "☁️ Firebase";
+      _sb.className = "topbar-badge badge-firebase";
+    } else {
+      _sb.textContent = "💾 Local";
+      _sb.className = "topbar-badge badge-local";
+    }
+  }
 
   renderCurrentSection();
   bindNav();
@@ -91,8 +100,15 @@ function saveLocal() {
 }
 
 async function saveData() {
-  saveLocal();
-  toast("💾 Sauvegardé", "success");
+  try {
+    dataManager._data = appData; // garantit la synchronisation (même référence normalement)
+    await dataManager.save();    // localStorage + Firestore si connecté
+    toast(firebaseReady ? "☁️ Synchronisé avec Firebase" : "💾 Sauvegardé localement", "success");
+  } catch(e) {
+    saveLocal(); // fallback local pur
+    toast("⚠️ Sauvegarde locale uniquement", "warning");
+    console.error("saveData error:", e);
+  }
 }
 
 function uid(prefix = "id") {
@@ -207,6 +223,14 @@ function bindGlobal() {
   document.getElementById("galleryFileInput")?.addEventListener("change", e => handleGalleryFiles(e.target.files));
   document.getElementById("serviceSearch")?.addEventListener("input", renderServicesTable);
   document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
+
+  // Aperçu images (hero, about, logo) — maj en temps réel si URL saisie manuellement
+  ["h-heroimg", "a-img", "s-logo"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", function() {
+      const prev = document.getElementById(id + "-preview");
+      if (prev) { prev.src = this.value || ""; prev.style.display = this.value ? "block" : "none"; }
+    });
+  });
 
   // Couleurs — liés une seule fois
   bindColors();
@@ -426,7 +450,14 @@ function serviceFormHTML(s = {}, categories = []) {
         </select>
       </div>
       <div class="form-group"><label>Ordre d'affichage</label><input id="sf-order" type="number" value="${s.order||1}" min="1"></div>
-      <div class="form-group span-2"><label>URL de l'image</label><input id="sf-img" type="url" value="${s.image||""}" placeholder="https://… (galerie)"></div>
+      <div class="form-group span-2">
+        <label>Image du service</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="sf-img" type="url" value="${s.image||""}" placeholder="https://… ou cliquez Upload" style="flex:1" oninput="(function(v){var p=document.getElementById('sf-img-preview');if(p){p.src=v;p.style.display=v?'block':'none'}})(this.value)">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="pickImage('sf-img')" style="white-space:nowrap;flex-shrink:0">📁 Upload</button>
+        </div>
+        <img id="sf-img-preview" src="${s.image||""}" style="${s.image?"":"display:none;"}margin-top:8px;max-height:90px;border-radius:6px;object-fit:cover;border:1px solid var(--border)">
+      </div>
       <div class="form-group"><label>Icône</label>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span id="sf-icon-preview" style="font-size:1.8rem">${s.icon||"🔧"}</span>
@@ -551,7 +582,14 @@ function articleFormHTML(a = {}) {
         </div>
         <div class="form-group"><label>Date de publication</label><input id="af-date" type="date" value="${a.date||new Date().toISOString().slice(0,10)}"></div>
       </div>
-      <div class="form-group"><label>URL de l'image</label><input id="af-img" type="url" value="${a.image||""}" placeholder="https://… (galerie)"></div>
+      <div class="form-group">
+        <label>Image de l'article</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="af-img" type="url" value="${a.image||""}" placeholder="https://… ou cliquez Upload" style="flex:1" oninput="(function(v){var p=document.getElementById('af-img-preview');if(p){p.src=v;p.style.display=v?'block':'none'}})(this.value)">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="pickImage('af-img')" style="white-space:nowrap;flex-shrink:0">📁 Upload</button>
+        </div>
+        <img id="af-img-preview" src="${a.image||""}" style="${a.image?"":"display:none;"}margin-top:8px;max-height:90px;border-radius:6px;object-fit:cover;border:1px solid var(--border)">
+      </div>
       <div class="toggle-wrap">
         <label class="toggle"><input type="checkbox" id="af-published" ${a.published!==false?"checked":""}><span class="toggle-slider"></span></label>
         <span class="toggle-label-txt">Publié (visible sur le site)</span>
@@ -846,6 +884,37 @@ function compressAndEncode(file, maxPx = 800, quality = 0.75) {
 }
 
 
+/**
+ * Ouvre un sélecteur de fichier, compresse l'image, et remplit l'input cible.
+ * Affiche aussi un aperçu si un <img id="${inputId}-preview"> existe.
+ * @param {string} inputId  — id du <input type="url"> cible
+ * @param {number} maxPx    — largeur/hauteur max en px (défaut 1200)
+ * @param {number} quality  — qualité JPEG 0–1 (défaut 0.82)
+ */
+function pickImage(inputId, maxPx = 1200, quality = 0.82) {
+  const fp = document.createElement("input");
+  fp.type = "file";
+  fp.accept = "image/*";
+  fp.style.cssText = "position:fixed;left:-9999px;opacity:0";
+  document.body.appendChild(fp);
+  fp.addEventListener("change", async () => {
+    const file = fp.files?.[0];
+    fp.remove();
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) { toast("Image trop volumineuse (max 15 Mo)", "error"); return; }
+    toast("⏳ Compression en cours…", "info");
+    try {
+      const dataUrl = await compressAndEncode(file, maxPx, quality);
+      const el = document.getElementById(inputId);
+      if (el) { el.value = dataUrl; el.dispatchEvent(new Event("input", { bubbles: true })); }
+      const prev = document.getElementById(inputId + "-preview");
+      if (prev) { prev.src = dataUrl; prev.style.display = "block"; }
+      toast("✅ Image chargée !");
+    } catch(e) { toast("Erreur image : " + e.message, "error"); }
+  });
+  fp.click();
+}
+
 async function addGalleryUrl() {
   const input = document.getElementById("galleryUrlInput");
   const url = input?.value.trim();
@@ -888,6 +957,10 @@ function renderSettings() {
     "s-logo": s.logo, "s-footer": s.footerText,
     "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram };
   Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
+  // Aperçu logo
+  const logoInp = document.getElementById("s-logo");
+  const logoPrev = document.getElementById("s-logo-preview");
+  if (logoInp && logoPrev) { logoPrev.src = logoInp.value || ""; logoPrev.style.display = logoInp.value ? "block" : "none"; }
 }
 
 async function saveSettings() {
@@ -927,6 +1000,12 @@ function renderHero() {
     "a-s3v": a.stat3Value, "a-s3l": a.stat3Label
   };
   Object.entries(map).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
+  // Aperçu images après chargement des valeurs
+  ["h-heroimg", "a-img"].forEach(id => {
+    const inp = document.getElementById(id);
+    const prev = document.getElementById(id + "-preview");
+    if (inp && prev) { prev.src = inp.value || ""; prev.style.display = inp.value ? "block" : "none"; }
+  });
 }
 
 async function saveHero() {
@@ -1103,6 +1182,7 @@ window.deleteService  = deleteService;
 window.saveService    = saveService;
 window.selectIcon     = selectIcon;
 window.selectCatIcon  = selectCatIcon;
+window.pickImage      = pickImage;
 window.editArticle    = editArticle;
 window.deleteArticle  = deleteArticle;
 window.saveArticle    = saveArticle;
