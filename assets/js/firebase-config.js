@@ -66,7 +66,9 @@ const DEFAULT_DATA = {
     socialInstagram: "",
     mapEmbed: "",
     chatUrl: "",
-    newsletterUrl: ""
+    newsletterUrl: "",
+    videoUrl: "",
+    videoTitle: ""
   },
   colors: {
     primary: "#1E3A2F",
@@ -178,6 +180,7 @@ const DEFAULT_DATA = {
     partners: false
   },
   gallery: [],
+  galleryCategories: [],
   faq: [
     { id: "faq1", question: "Comment se déroule un premier rendez-vous ?", answer: "Le premier rendez-vous est une consultation d'une heure pour analyser votre projet, définir vos besoins et vous proposer un accompagnement adapté. Il est sans engagement.", order: 1 },
     { id: "faq2", question: "Quels types de projets accompagnez-vous ?", answer: "Nous accompagnons tous types de projets : construction neuve, rénovation, extension, surélévation, expertise technique, permis de construire et audit énergétique.", order: 2 },

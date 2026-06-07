@@ -17,6 +17,7 @@ let currentSection = "dashboard"; // must be top-level — used by hoisted initA
 const EXTENSION_DEFS = [
   { key: "testimonials", icon: "⭐", name: "Témoignages clients",    desc: "Affiche la section témoignages avec notes étoiles sur le site public" },
   { key: "gallery",      icon: "🖼️", name: "Galerie photos",         desc: "Affiche la section galerie avec toutes vos images de projets" },
+  { key: "video",        icon: "🎬", name: "Section vidéo",          desc: "Affiche une vidéo YouTube, Vimeo ou un fichier direct (URL à configurer dans Paramètres)" },
   { key: "stats",        icon: "📈", name: "Barre de statistiques",   desc: "Chiffres clés animés (projets réalisés, années d'expérience…)" },
   { key: "contact",      icon: "✉️", name: "Formulaire de contact",  desc: "Affiche la section contact avec formulaire — messages sauvegardés localement" },
   { key: "map",          icon: "🗺️", name: "Carte Google Maps",      desc: "Intègre une carte interactive avec votre adresse professionnelle" },
@@ -242,6 +243,7 @@ function bindGlobal() {
   document.getElementById("galleryFileInput")?.addEventListener("change", e => handleGalleryFiles(e.target.files));
   document.getElementById("serviceSearch")?.addEventListener("input", renderServicesTable);
   document.getElementById("articleSearch")?.addEventListener("input", renderArticlesTable);
+  document.getElementById("galleryCatInput")?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addGalleryCat(); } });
 
   // Aperçu images (hero, about, logo) — maj en temps réel si URL saisie manuellement
   ["h-heroimg", "a-img", "s-logo"].forEach(id => {
@@ -892,28 +894,95 @@ async function deleteTestimonial(id) {
 }
 
 // ============================================================
-// GALLERY — Firebase Storage
+// GALLERY — Firebase Storage + categories
 // ============================================================
+let _galleryFilter = "all";
+
+function renderGalleryCatChips() {
+  const chips = document.getElementById("galleryCatChips");
+  const sel   = document.getElementById("galleryItemCat");
+  if (!chips) return;
+  const cats = appData.galleryCategories || [];
+  chips.innerHTML = cats.map(c => `
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:var(--accent);border:1px solid var(--border);font-size:0.8rem">
+      ${escHtml(c.name)}
+      <button onclick="deleteGalleryCat('${escHtml(c.id)}')" style="background:none;border:none;cursor:pointer;color:var(--text-m);font-size:0.9rem;line-height:1;padding:0" title="Supprimer">×</button>
+    </span>`).join("") || `<span style="color:var(--text-m);font-size:0.8rem">Aucune catégorie</span>`;
+
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">— Catégorie —</option>` +
+      cats.map(c => `<option value="${escHtml(c.id)}" ${cur===c.id?"selected":""}>${escHtml(c.name)}</option>`).join("");
+  }
+}
+
+function renderGalleryAdminFilters() {
+  const bar = document.getElementById("galleryAdminFilters");
+  if (!bar) return;
+  const cats = appData.galleryCategories || [];
+  if (!cats.length) { bar.innerHTML = ""; return; }
+  bar.innerHTML = [
+    `<button class="btn btn-sm ${_galleryFilter==="all"?"btn-primary":"btn-ghost"}" onclick="setGalleryFilter('all')">Toutes</button>`,
+    ...cats.map(c => `<button class="btn btn-sm ${_galleryFilter===c.id?"btn-primary":"btn-ghost"}" onclick="setGalleryFilter('${escHtml(c.id)}')">${escHtml(c.name)}</button>`)
+  ].join("");
+}
+
+function setGalleryFilter(catId) {
+  _galleryFilter = catId;
+  renderGallery();
+}
+
+function addGalleryCat() {
+  const inp = document.getElementById("galleryCatInput");
+  const name = inp?.value.trim();
+  if (!name) { toast("Nom de catégorie requis", "error"); return; }
+  if (!appData.galleryCategories) appData.galleryCategories = [];
+  if (appData.galleryCategories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    toast("Catégorie déjà existante", "warning"); return;
+  }
+  appData.galleryCategories.push({ id: uid("gcat"), name });
+  if (inp) inp.value = "";
+  saveData().then(() => { renderGalleryCatChips(); renderGalleryAdminFilters(); });
+}
+
+async function deleteGalleryCat(id) {
+  if (!confirm("Supprimer cette catégorie ? Les images la gardent en mémoire mais ne seront plus filtrables.")) return;
+  appData.galleryCategories = (appData.galleryCategories||[]).filter(c => c.id !== id);
+  await saveData();
+  renderGalleryCatChips();
+  renderGalleryAdminFilters();
+  renderGallery();
+  toast("Catégorie supprimée");
+}
+
 function renderGallery() {
+  renderGalleryCatChips();
+  renderGalleryAdminFilters();
+
   const gallery = appData.gallery || [];
+  const cats = appData.galleryCategories || [];
   const grid = document.getElementById("galleryGrid");
   if (!grid) return;
 
-  grid.innerHTML = gallery.length ? gallery.map(img => {
+  const filtered = _galleryFilter === "all" ? gallery : gallery.filter(i => i.category === _galleryFilter);
+
+  grid.innerHTML = filtered.length ? filtered.map(img => {
     const safeUrl  = escHtml(img.url  || "");
     const safeId   = escHtml(img.id   || "");
     const safeName = escHtml(img.name || "");
+    const cat = cats.find(c => c.id === img.category);
+    const catBadge = cat ? `<span style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:10px">${escHtml(cat.name)}</span>` : "";
     return `
     <div class="gallery-item">
       <img src="${safeUrl}" alt="${safeName}" loading="lazy">
+      ${catBadge}
       <div class="gallery-item-overlay">
         <button class="copy-url-btn" onclick="copyUrl('${safeUrl}')">📋 Copier URL</button>
         <button class="btn btn-danger btn-sm btn-icon" onclick="deleteGalleryImg('${safeId}')" style="background:rgba(239,68,68,0.8);border-color:transparent">🗑</button>
       </div>
       <div class="gallery-item-name">${safeName}</div>
     </div>`;
-  }).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">Aucune image dans la galerie</p>`;
-
+  }).join("") : `<p style="grid-column:1/-1;text-align:center;color:var(--text-m);padding:24px">${gallery.length ? "Aucune image dans cette catégorie" : "Aucune image dans la galerie"}</p>`;
 }
 
 async function handleGalleryFiles(files) {
@@ -937,7 +1006,8 @@ async function handleGalleryFiles(files) {
         // Compression + base64 (max ~700KB encodé pour tenir dans Firestore 1MB)
         url = await compressAndEncode(file, 800, 0.75);
       }
-      const img = { id: uid("img"), name: file.name, url, date: new Date().toISOString() };
+      const category = document.getElementById("galleryItemCat")?.value || "";
+      const img = { id: uid("img"), name: file.name, url, date: new Date().toISOString(), category };
       appData.gallery = [...(appData.gallery||[]), img];
       await saveData();
       renderGallery();
@@ -1010,7 +1080,8 @@ async function addGalleryUrl() {
   const url = input?.value.trim();
   if (!url || !url.startsWith("http")) { toast("URL invalide","error"); return; }
   const name = url.split("/").pop().split("?")[0] || "image";
-  const img = { id: uid("img"), name, url, date: new Date().toISOString() };
+  const category = document.getElementById("galleryItemCat")?.value || "";
+  const img = { id: uid("img"), name, url, date: new Date().toISOString(), category };
   appData.gallery = [...(appData.gallery||[]), img];
   input.value = "";
   await saveData();
@@ -1046,7 +1117,8 @@ function renderSettings() {
     "s-phone": s.phone, "s-email": s.email, "s-address": s.address,
     "s-logo": s.logo, "s-footer": s.footerText,
     "s-linkedin": s.socialLinkedIn, "s-facebook": s.socialFacebook, "s-instagram": s.socialInstagram,
-    "s-mapembed": s.mapEmbed, "s-chaturl": s.chatUrl, "s-newsletterurl": s.newsletterUrl };
+    "s-mapembed": s.mapEmbed, "s-chaturl": s.chatUrl, "s-newsletterurl": s.newsletterUrl,
+    "s-videourl": s.videoUrl, "s-videotitle": s.videoTitle };
   Object.entries(fields).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val||""; });
   // Aperçu logo
   const logoInp = document.getElementById("s-logo");
@@ -1070,6 +1142,8 @@ async function saveSettings() {
   s.mapEmbed        = document.getElementById("s-mapembed")?.value.trim();
   s.chatUrl         = document.getElementById("s-chaturl")?.value.trim();
   s.newsletterUrl   = document.getElementById("s-newsletterurl")?.value.trim();
+  s.videoUrl        = document.getElementById("s-videourl")?.value.trim();
+  s.videoTitle      = document.getElementById("s-videotitle")?.value.trim();
   appData.settings = s;
   const _logoEl = document.getElementById("sidebarLogo");
   if (_logoEl) _logoEl.textContent = s.siteName || "SCC";
@@ -1460,6 +1534,9 @@ window.deleteTestimonial = deleteTestimonial;
 window.saveTestimonial   = saveTestimonial;
 window.deleteGalleryImg  = deleteGalleryImg;
 window.copyUrl           = copyUrl;
+window.addGalleryCat     = addGalleryCat;
+window.deleteGalleryCat  = deleteGalleryCat;
+window.setGalleryFilter  = setGalleryFilter;
 window.updateStat        = updateStat;
 window.deleteStat        = deleteStat;
 window.toggleExtension   = toggleExtension;

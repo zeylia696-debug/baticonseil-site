@@ -196,16 +196,30 @@
         <div class="section-header-bar">
           <div><h2>Galerie d'images</h2><p>Stockez et copiez les URLs de vos images</p></div>
         </div>
+        <!-- Gestion catégories galerie -->
+        <div class="table-card" style="padding:16px 20px;margin-bottom:16px">
+          <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-m);margin-bottom:10px">🏷️ Catégories de la galerie</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px" id="galleryCatChips"></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="galleryCatInput" placeholder="Nouvelle catégorie…" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;outline:none;flex:1;max-width:240px">
+            <button class="btn btn-ghost btn-sm" onclick="addGalleryCat()">+ Ajouter</button>
+          </div>
+        </div>
         <div class="gallery-upload-zone" id="galleryDrop">
           <div class="upload-icon">☁️</div>
           <p><strong>Cliquez ou glissez</strong> vos images ici</p>
-          <p style="margin-top:6px;font-size:0.75rem">JPG, PNG, WebP — max 5 Mo par image</p>
+          <p style="margin-top:6px;font-size:0.75rem">JPG, PNG, WebP — max 15 Mo par image</p>
           <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none">
         </div>
-        <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
-          <input type="text" id="galleryUrlInput" placeholder="Ou collez une URL d'image externe…" style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;outline:none">
+        <div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="galleryUrlInput" placeholder="Collez une URL d'image externe…" style="flex:1;min-width:200px;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;outline:none">
+          <select id="galleryItemCat" style="padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;outline:none;background:var(--white)">
+            <option value="">— Catégorie —</option>
+          </select>
           <button class="btn btn-ghost" id="galleryAddUrl">+ Ajouter URL</button>
         </div>
+        <!-- Filtres galerie admin -->
+        <div id="galleryAdminFilters" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
         <div class="gallery-grid" id="galleryGrid"></div>
       </div>
 
@@ -250,6 +264,15 @@
               <label>📧 URL newsletter (Mailchimp embed)</label>
               <input id="s-newsletterurl" type="url" placeholder="https://us1.list-manage.com/…">
               <div class="form-hint">Extensions › Newsletter doit être activée.</div>
+            </div>
+            <div class="form-group span-2" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+              <label>🎬 Vidéo — URL (YouTube, Vimeo ou fichier direct)</label>
+              <input id="s-videourl" type="url" placeholder="https://www.youtube.com/watch?v=… ou https://vimeo.com/…">
+              <div class="form-hint">Extensions › Vidéo doit être activée. Copiez l'URL complète de la page YouTube/Vimeo.</div>
+            </div>
+            <div class="form-group">
+              <label>Titre de la section vidéo</label>
+              <input id="s-videotitle" type="text" placeholder="Découvrez notre approche">
             </div>
           </div>
         </div>

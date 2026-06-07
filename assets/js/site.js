@@ -47,7 +47,12 @@ class SiteRenderer {
 
     // Gallery
     this._toggleSection("gallery-section", ext.gallery && (data.gallery||[]).length > 0);
-    if (ext.gallery) this._renderGallerySection(data.gallery);
+    if (ext.gallery) this._renderGallerySection(data.gallery, data.galleryCategories);
+
+    // Video
+    const hasVideo = !!ext.video && !!(data.settings?.videoUrl);
+    this._toggleSection("video-section", hasVideo);
+    if (hasVideo) this._renderVideoSection(data.settings);
 
     // Testimonials
     this._toggleSection("testimonials", ext.testimonials !== false);
@@ -488,15 +493,65 @@ class SiteRenderer {
   // ──────────────────────────────────────────────
   // GALLERY SECTION
   // ──────────────────────────────────────────────
-  _renderGallerySection(gallery = []) {
+  _renderGallerySection(gallery = [], galleryCategories = []) {
     const el = document.getElementById("gallery-section-grid");
     if (!el) return;
-    const imgs = (gallery || []).slice(0, 12);
+    const imgs = (gallery || []).slice(0, 24);
     if (!imgs.length) { el.innerHTML = ""; return; }
-    el.innerHTML = `<div class="gallery-pub-grid">${imgs.map(img => `
-      <div class="gallery-pub-item fade-up">
-        <img src="${this._esc(img.url)}" alt="${this._esc(img.name||"Photo")}" loading="lazy">
-      </div>`).join("")}</div>`;
+
+    const usedCatIds = [...new Set(imgs.map(i => i.category).filter(Boolean))];
+    const cats = (galleryCategories || []).filter(c => usedCatIds.includes(c.id));
+
+    const filters = cats.length > 0 ? `
+      <div class="services-filters gallery-cat-filters fade-up" style="margin-bottom:32px">
+        <button class="filter-btn active" data-cat="all">Toutes</button>
+        ${cats.map(c => `<button class="filter-btn" data-cat="${this._esc(c.id)}">${this._esc(c.name)}</button>`).join("")}
+      </div>` : "";
+
+    el.innerHTML = `
+      ${filters}
+      <div class="gallery-pub-grid" id="galleryPubGrid">${imgs.map(img => `
+        <div class="gallery-pub-item fade-up" data-cat="${this._esc(img.category || "")}">
+          <img src="${this._esc(img.url)}" alt="${this._esc(img.name||"Photo")}" loading="lazy">
+        </div>`).join("")}
+      </div>`;
+
+    el.querySelectorAll(".gallery-cat-filters .filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        el.querySelectorAll(".gallery-cat-filters .filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const cat = btn.dataset.cat;
+        el.querySelectorAll(".gallery-pub-item").forEach(item => {
+          item.style.display = (cat === "all" || item.dataset.cat === cat) ? "" : "none";
+        });
+      });
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  // VIDEO SECTION
+  // ──────────────────────────────────────────────
+  _renderVideoSection(settings = {}) {
+    const el = document.getElementById("video-section-content");
+    if (!el) return;
+    const url = settings.videoUrl || "";
+    const title = settings.videoTitle || "Notre présentation";
+
+    const titleEl = document.getElementById("video-section-title");
+    if (titleEl) titleEl.textContent = title;
+
+    let embedHtml = "";
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      const vid = url.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/)?.[1] || "";
+      if (vid) embedHtml = `<iframe src="https://www.youtube.com/embed/${this._esc(vid)}" title="${this._esc(title)}" allowfullscreen></iframe>`;
+    } else if (url.includes("vimeo.com")) {
+      const vid = url.match(/vimeo\.com\/(\d+)/)?.[1] || "";
+      if (vid) embedHtml = `<iframe src="https://player.vimeo.com/video/${this._esc(vid)}" title="${this._esc(title)}" allowfullscreen></iframe>`;
+    } else {
+      embedHtml = `<video controls preload="none"><source src="${this._esc(url)}"><p>Votre navigateur ne supporte pas la lecture vidéo.</p></video>`;
+    }
+
+    el.innerHTML = embedHtml ? `<div class="video-embed-wrap fade-up">${embedHtml}</div>` : "";
   }
 
   // ──────────────────────────────────────────────
